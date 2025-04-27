@@ -6,7 +6,7 @@ import 'modules/welcome/verification_page.dart';
 import 'modules/welcome/login_page.dart';
 import 'modules/welcome/register_page.dart';
 import 'modules/itinerary_personalization/itinerary_personalization_page.dart';
-import 'modules/recommendation/recommendation_pages.dart';
+import 'modules/recommendation/recommendation_page.dart';
 import 'modules/staff/stb_dashboard_page.dart';
 import 'modules/local/local_main_page.dart';
 import 'shared/services/auth_service.dart';
@@ -124,15 +124,17 @@ class AppRouter {
       case '/recommendation':
         final Map<String, dynamic> args = settings.arguments as Map<String, dynamic>;
         final UserModel user = args['user'] as UserModel;
-        final itinerary = args['itinerary'];
-        
+        final itinerary = args['itinerary']; // Can be null
+
+        // Instantiate RecommendationService here or ensure it's passed if needed globally
+        final recommendationService = RecommendationService();
+
         return MaterialPageRoute(
-          builder: (_) => EventsPage(
+          builder: (_) => RecommendationPage( // CHANGED to RecommendationPage
             user: user,
             navigationService: navigationService,
-            mockDataService: mockDataService,
+            recommendationService: recommendationService, // Pass the service instance
             itinerary: itinerary,
-            recommendationService: RecommendationService(),
           ),
         );
       case '/visitor_type':

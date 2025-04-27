@@ -217,9 +217,13 @@ class _ItineraryPersonalizationPageState extends State<ItineraryPersonalizationP
                       const SizedBox(height: 24),
       _buildPreferenceSlider(
         title: 'Food Experiences',
+        description: 'How many food experiences would you like per day?', // Added description
+        icon: Icons.restaurant, // Added icon
         value: _preferences.foodPreference.toDouble(),
+        min: 0, // Added min
         max: 5,
         onChanged: (value) {
+          HapticFeedback.selectionClick(); // Added haptic feedback
           setState(() {
             _preferences = _preferences.copyWith(
               foodPreference: value.round(),
@@ -227,12 +231,16 @@ class _ItineraryPersonalizationPageState extends State<ItineraryPersonalizationP
           });
         },
       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24), // Increased spacing
       _buildPreferenceSlider(
         title: 'Attractions',
+        description: 'How many attractions would you like to visit per day?', // Added description
+        icon: Icons.photo_camera, // Added icon
         value: _preferences.attractionsPreference.toDouble(),
+        min: 0, // Added min
         max: 3,
         onChanged: (value) {
+          HapticFeedback.selectionClick(); // Added haptic feedback
           setState(() {
             _preferences = _preferences.copyWith(
               attractionsPreference: value.round(),
@@ -240,12 +248,16 @@ class _ItineraryPersonalizationPageState extends State<ItineraryPersonalizationP
           });
         },
       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24), // Increased spacing
       _buildPreferenceSlider(
         title: 'Cultural Experiences',
+        description: 'How many cultural experiences would you like per day?', // Added description
+        icon: Icons.theater_comedy, // Added icon
         value: _preferences.experiencesPreference.toDouble(),
+        min: 0, // Added min
         max: 2,
         onChanged: (value) {
+          HapticFeedback.selectionClick(); // Added haptic feedback
           setState(() {
             _preferences = _preferences.copyWith(
               experiencesPreference: value.round(),
@@ -253,19 +265,23 @@ class _ItineraryPersonalizationPageState extends State<ItineraryPersonalizationP
           });
         },
       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24), // Increased spacing
       _buildPreferenceSlider(
-                        title: 'Days',
+                        title: 'Trip Duration', // Changed title
+        description: 'How many days will you be staying?', // Added description
+        icon: Icons.calendar_today, // Added icon
         value: _preferences.days.toDouble(),
         min: 1,
         max: 3,
         onChanged: (value) {
+          HapticFeedback.selectionClick(); // Added haptic feedback
           setState(() {
             _preferences = _preferences.copyWith(
               days: value.round(),
             );
           });
         },
+        valueDisplay: (value) => '${value.round()} ${value.round() == 1 ? 'day' : 'days'}', // Added valueDisplay
                       ),
                       if (_generatedItinerary != null) ...[
                         const SizedBox(height: 32),
@@ -367,46 +383,163 @@ class _ItineraryPersonalizationPageState extends State<ItineraryPersonalizationP
 
   Widget _buildPreferenceSlider({
     required String title,
+    required String description, // Added
+    required IconData icon, // Added
     required double value,
-    double min = 0,
+    required double min, // Changed from optional
     required double max,
     required ValueChanged<double> onChanged,
+    String Function(double)? valueDisplay, // Added
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Row(
-      children: [
-        Expanded(
-              child: Slider(
-                value: value,
-                min: min,
-                max: max,
-                divisions: (max - min).round(),
-                label: value.round().toString(),
-                onChanged: onChanged,
-              ),
-            ),
-            SizedBox(
-              width: 50,
-              child: Text(
-                value.round().toString(),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                ),
-              ),
+    final primaryColor = const Color(0xFF2C2C2C); // Define color locally or use Theme
+    // final accentColor = const Color(0xFF757575); // Define color locally or use Theme
+
+    // Added TweenAnimationBuilder for opacity effect
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 200),
+      tween: Tween(begin: 0.0, end: 1.0),
+      builder: (context, opacity, child) {
+        return Opacity(
+          opacity: opacity,
+          child: child,
+        );
+      },
+      child: Container( // Added Container wrapper with decoration
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row( // Added Row for icon and title/description
+              children: [
+                Container( // Added Container for icon background
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: primaryColor, size: 32),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: primaryColor,
+                        ),
+                      ),
+                      Text( // Added description text
+                        description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox( // Added SizedBox to constrain height
+              height: 32,
+              child: Stack( // Use Stack for overlaying circles
+                alignment: Alignment.center,
+                children: [
+                  Padding( // Padding for the base slider track
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: SliderTheme( // Apply custom SliderTheme
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: const Color(0xFF2C2C2C),
+                        inactiveTrackColor: Colors.grey.shade200,
+                        thumbColor: Colors.transparent, // Hide default thumb
+                        overlayColor: Colors.transparent, // Hide overlay
+                        trackHeight: 18.0, // Make track thicker
+                        thumbShape: const RoundSliderThumbShape( // Ensure no thumb space
+                          enabledThumbRadius: 0,
+                          pressedElevation: 0,
+                        ),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 0),
+                        tickMarkShape: SliderTickMarkShape.noTickMark, // Hide ticks
+                        showValueIndicator: ShowValueIndicator.never, // Hide label
+                      ),
+                      child: Slider( // The actual slider logic remains
+                        value: value,
+                        min: min, // Use required min
+                        max: max,
+                        divisions: (max - min).toInt(), // Correct divisions calculation
+                        onChanged: onChanged,
+                      ),
+                    ),
+                  ),
+                  Positioned.fill( // Position the circles over the slider
+                    child: IgnorePointer( // Make circles non-interactive
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row( // Row to distribute circles
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(
+                            (max - min).toInt() + 1, // Correct number of circles
+                            (index) {
+                              final actualValue = index + min.toInt(); // Calculate value for circle
+                              final isSelected = value.round() >= actualValue; // Determine selection state
+                              return AnimatedContainer( // Animate circle appearance
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOutCubic,
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isSelected ? const Color(0xFF2C2C2C) : Colors.grey.shade200, // Change color based on selection
+                                  boxShadow: [ // Add subtle shadow
+                                    BoxShadow(
+                                      color: const Color(0xFF2C2C2C).withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: AnimatedDefaultTextStyle( // Animate text style
+                                    duration: const Duration(milliseconds: 200),
+                                    curve: Curves.easeOutCubic,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isSelected ? Colors.white : Colors.grey.shade600, // Change text color
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    child: Text(actualValue.toString()), // Display value in circle
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8), // Add spacing at the bottom
+          ],
+        ),
+      ),
     );
   }
 

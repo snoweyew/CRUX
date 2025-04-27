@@ -1,9 +1,12 @@
-/*import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/models/user_model.dart';
 import '../../shared/services/navigation_service.dart';
-import '../../shared/services/mock_data_service.dart';
+// import '../../shared/services/mock_data_service.dart'; // No longer needed for recommendations
+import '../../shared/services/recommendation_service.dart'; // Import RecommendationService
+import '../../shared/config/app_config.dart'; // Import AppConfig if needed for mock data flag
 import '../itinerary_personalization/itinerary_model.dart';
+import 'cart_item.dart'; // Ensure cart_item.dart is imported if it's separate
 
 class CartItem {
   final String productId;
@@ -11,6 +14,7 @@ class CartItem {
   final String location;
   final double price;
   final int quantity;
+  final String? imageUrl; // Add imageUrl field
 
   CartItem({
     required this.productId,
@@ -18,20 +22,23 @@ class CartItem {
     required this.location,
     required this.price,
     required this.quantity,
+    this.imageUrl, // Initialize imageUrl
   });
 }
 
 class RecommendationPage extends StatefulWidget {
   final UserModel user;
   final NavigationService navigationService;
-  final MockDataService mockDataService;
+  // final MockDataService mockDataService; // Removed
+  final RecommendationService recommendationService; // Added
   final ItineraryModel? itinerary;
 
   const RecommendationPage({
     Key? key,
     required this.user,
     required this.navigationService,
-    required this.mockDataService,
+    // required this.mockDataService, // Removed
+    required this.recommendationService, // Added
     required this.itinerary,
   }) : super(key: key);
 
@@ -50,6 +57,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
   ];
   int _selectedIndex = 0;
   List<CartItem> _cartItems = [];
+  String? _selectedCity; // Store the selected city
   
   // Animation controller for page transitions
   late AnimationController _animationController;
@@ -58,6 +66,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
   @override
   void initState() {
     super.initState();
+    _selectedCity = widget.user.selectedCity; // Get the city from the user model
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -86,7 +95,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
             _buildAppBar(),
             const SizedBox(height: 8),
             Expanded(
-              child: _buildRecommendationsList(),
+              child: _buildRecommendationsList(), // This will now use FutureBuilder
                 ),
               ],
             ),
@@ -235,10 +244,26 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
                 itemBuilder: (context, index) {
                   final item = _cartItems[index];
                   return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
-                      title: Text(item.name),
+                      leading: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                          ? ClipRRect( // Rounded corners for image
+                              borderRadius: BorderRadius.circular(4.0),
+                              child: Image.network(
+                                item.imageUrl!,
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox(width: 50, height: 50, child: Icon(Icons.broken_image, size: 24)),
+                                loadingBuilder: (context, child, progress) =>
+                                    progress == null ? child : const SizedBox(width: 50, height: 50, child: Center(child: CircularProgressIndicator())),
+                              ),
+                            )
+                          : const SizedBox(width: 50, height: 50, child: Icon(Icons.image_not_supported)), // Placeholder if no image
+                      title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: Text('RM ${item.price.toStringAsFixed(2)}'),
-                      trailing: Text('x${item.quantity}'),
+                      trailing: Text('x${item.quantity}', style: const TextStyle(fontSize: 16)),
                     ),
                   );
                 },
@@ -393,7 +418,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
                     builder: (context) => RecommendationPage(
                       user: widget.user,
                       navigationService: widget.navigationService,
-                      mockDataService: widget.mockDataService,
+                      recommendationService: widget.recommendationService,
                       itinerary: widget.itinerary,
                     ),
                   ),
@@ -413,33 +438,32 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
 
   void _addToCart(Map<String, String> product) {
     setState(() {
-      final existingItem = _cartItems.firstWhere(
+      final existingItemIndex = _cartItems.indexWhere(
         (item) => item.productId == product['id'],
-        orElse: () => CartItem(
-          productId: product['id']!,
-          name: product['name']!,
-          location: product['location']!,
-          price: double.parse(product['price']!),
-          quantity: 0,
-        ),
       );
 
-      if (existingItem.quantity == 0) {
+      final imageUrl = product['imageUrl']; // Get image URL from product data
+
+      if (existingItemIndex == -1) {
+        // Item not in cart, add new
         _cartItems.add(CartItem(
           productId: product['id']!,
           name: product['name']!,
           location: product['location']!,
           price: double.parse(product['price']!),
           quantity: 1,
+          imageUrl: imageUrl, // Pass imageUrl
         ));
       } else {
-        final index = _cartItems.indexOf(existingItem);
-        _cartItems[index] = CartItem(
+        // Item exists, update quantity
+        final existingItem = _cartItems[existingItemIndex];
+        _cartItems[existingItemIndex] = CartItem(
           productId: existingItem.productId,
           name: existingItem.name,
           location: existingItem.location,
           price: existingItem.price,
           quantity: existingItem.quantity + 1,
+          imageUrl: existingItem.imageUrl, // Keep existing imageUrl
         );
       }
     });
@@ -497,63 +521,83 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
   }
   
   Widget _buildRecommendationsList() {
-    final recommendations = _getMockRecommendations();
-    final isShoppingCategory = _categories[_selectedIndex].toLowerCase() == 'shopping';
+    if (_selectedCity == null || _selectedCity!.isEmpty) {
+      return const Center(
+        child: Text('No city selected. Please go back and select a destination.'),
+      );
+    }
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: isShoppingCategory
-          ? GridView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.75,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: recommendations.length,
-              itemBuilder: (context, index) {
-                final recommendation = recommendations[index];
-                return TweenAnimationBuilder<double>(
-                  duration: Duration(milliseconds: 200 + (index * 100)),
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
+    final category = _categories[_selectedIndex].toLowerCase();
+
+    // Use FutureBuilder to fetch recommendations from the service
+    return FutureBuilder<List<Map<String, String>>>(
+      // Fetch data using the service. Assuming mock data for now.
+      // Replace with API calls if AppConfig.enableMockData is false and API supports city filtering.
+      future: Future.value(widget.recommendationService.getMockRecommendations(category, city: _selectedCity)),
+      // Example using API call (if API supported city filtering - currently it doesn't seem to):
+      // future: AppConfig.enableMockData
+      //     ? Future.value(widget.recommendationService.getMockRecommendations(category, city: _selectedCity))
+      //     : widget.recommendationService.fetchRecommendations(category, city: _selectedCity), // Hypothetical API call
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error loading recommendations: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Text('No recommendations found for $_selectedCity in the $category category.'),
+          );
+        }
+
+        final recommendations = snapshot.data!;
+        final isShoppingCategory = category == 'shopping';
+
+        // Use FadeTransition with the fetched data
+        return FadeTransition(
+          opacity: _fadeAnimation, // Consider resetting animation on category change
+          child: isShoppingCategory
+              ? GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.75,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: recommendations.length,
+                  itemBuilder: (context, index) {
+                    final recommendation = recommendations[index];
+                    // Using simple Opacity, consider removing TweenAnimationBuilder here
+                    // if FutureBuilder handles the loading state.
                     return Opacity(
-                      opacity: value,
-                      child: child,
+                       opacity: 1.0, // Or keep TweenAnimationBuilder if preferred
+                       child: _buildShoppingCard(recommendation),
                     );
                   },
-                  child: _buildShoppingCard(recommendation),
-                );
-              },
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              itemCount: recommendations.length,
-              itemBuilder: (context, index) {
-                final recommendation = recommendations[index];
-                return TweenAnimationBuilder<double>(
-                  duration: Duration(milliseconds: 200 + (index * 100)),
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  builder: (context, value, child) {
-                    return Transform.translate(
-                      offset: Offset(0, 50 * (1 - value)),
-                      child: Opacity(
-                        opacity: value,
-                        child: child,
-                      ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  itemCount: recommendations.length,
+                  itemBuilder: (context, index) {
+                    final recommendation = recommendations[index];
+                    // Using simple Opacity, consider removing TweenAnimationBuilder here
+                    return Opacity(
+                      opacity: 1.0, // Or keep TweenAnimationBuilder if preferred
+                      child: _buildRecommendationCard(recommendation),
                     );
                   },
-                  child: _buildRecommendationCard(recommendation),
-                );
-              },
-            ),
+                ),
+        );
+      },
     );
   }
 
   Widget _buildRecommendationCard(Map<String, String> recommendation) {
     final screenHeight = MediaQuery.of(context).size.height;
     final double cardHeight = screenHeight * 0.22; // Adjusted to 22% of screen height
+    final imageUrl = recommendation['imageUrl']; // Get image URL
     
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -576,16 +620,28 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
               // Image section (3/4)
               Expanded(
                 flex: 7, // Adjusted ratio
-                child: Container(
-                  decoration: BoxDecoration(
-            borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
-                    image: DecorationImage(
-                      image: AssetImage(_getCategoryImage()),
-              fit: BoxFit.cover,
-                    ),
+                child: ClipRRect( // Apply clipping directly to the image container
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                  child: Container(
+                    color: Colors.grey[200], // Background color for loading/error states
+                    child: imageUrl != null && imageUrl.isNotEmpty
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover, // Ensure image covers the container
+                            width: double.infinity, // Ensure it takes full width
+                            // Add loading/error builders for better UX
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(child: CircularProgressIndicator());
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(child: Icon(Icons.broken_image, color: Colors.grey));
+                            },
+                          )
+                        : const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)), // Fallback
                   ),
                 ),
               ),
@@ -641,6 +697,8 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
   }
   
   Widget _buildShoppingCard(Map<String, String> recommendation) {
+    final imageUrl = recommendation['imageUrl']; // Get image URL
+
     return Card(
       elevation: 2,
       shadowColor: Colors.black12,
@@ -661,15 +719,27 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
               flex: 5,
               child: Stack(
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        topRight: Radius.circular(8),
-                      ),
-                      image: DecorationImage(
-                        image: AssetImage(_getCategoryImage()),
-                        fit: BoxFit.cover,
+                  ClipRRect( // Apply clipping directly
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8),
+                      topRight: Radius.circular(8),
+                    ),
+                    child: Container(
+                      color: Colors.grey[200], // Background color
+                      child: SizedBox.expand( // Ensure image tries to fill container
+                        child: imageUrl != null && imageUrl.isNotEmpty
+                            ? Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover, // Ensure image covers the container
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return const Center(child: CircularProgressIndicator());
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Center(child: Icon(Icons.broken_image, color: Colors.grey));
+                                },
+                              )
+                            : const Center(child: Icon(Icons.image_not_supported, color: Colors.grey)), // Fallback
                       ),
                     ),
                   ),
@@ -743,148 +813,4 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
       ),
     );
   }
-
-  String _getCategoryImage() {
-    // Replace these with actual image assets from your project
-    switch (_categories[_selectedIndex].toLowerCase()) {
-      case 'events':
-        return 'assets/images/events_placeholder.jpg';
-      case 'food':
-        return 'assets/images/food_placeholder.jpg';
-      case 'experiences':
-        return 'assets/images/experiences_placeholder.jpg';
-      case 'attractions':
-        return 'assets/images/attractions_placeholder.jpg';
-      case 'shopping':
-        return 'assets/images/shopping_placeholder.jpg';
-      default:
-        return 'assets/images/default_placeholder.jpg';
-    }
-  }
-
-  List<Map<String, String>> _getMockRecommendations() {
-    final category = _categories[_selectedIndex].toLowerCase();
-    
-    switch (category) {
-      case 'events':
-        return [
-          {
-            'name': 'Rainforest Music Festival',
-            'description': 'Annual world music festival featuring traditional and contemporary performances',
-            'location': 'Sarawak Cultural Village'
-          },
-          {
-            'name': 'Gawai Festival',
-            'description': 'Traditional harvest festival celebrating Dayak culture',
-            'location': 'Various locations'
-          },
-          {
-            'name': 'Kuching Food Festival',
-            'description': 'Annual food festival showcasing local cuisine',
-            'location': 'Kuching Waterfront'
-          }
-        ];
-      case 'food':
-        return [
-          {
-            'name': 'Sarawak Laksa',
-            'description': 'Famous local noodle dish with spicy coconut milk broth',
-            'location': 'Central Market Food Court'
-          },
-          {
-            'name': 'Kolo Mee',
-            'description': 'Traditional dry noodle dish with minced meat',
-            'location': 'Open Air Market'
-          },
-          {
-            'name': 'Midin Belacan',
-            'description': 'Local jungle fern stir-fried with shrimp paste',
-            'location': 'Top Spot Food Court'
-          }
-        ];
-      case 'experiences':
-        return [
-          {
-            'name': 'Traditional Craft Workshop',
-            'description': 'Learn to make traditional beaded crafts',
-            'location': 'Main Bazaar'
-          },
-          {
-            'name': 'Semenggoh Wildlife Centre',
-            'description': 'Watch orangutans in their natural habitat',
-            'location': 'Semenggoh'
-          },
-          {
-            'name': 'River Cruise',
-            'description': 'Evening cruise along the Sarawak River',
-            'location': 'Kuching Waterfront'
-          }
-        ];
-      case 'attractions':
-        return [
-          {
-            'name': 'Kuching Waterfront',
-            'description': 'Scenic riverside promenade with historic buildings',
-            'location': 'City Center'
-          },
-          {
-            'name': 'Sarawak Cultural Village',
-            'description': 'Living museum showcasing local ethnic cultures',
-            'location': 'Damai Beach'
-          },
-          {
-            'name': 'Bako National Park',
-            'description': 'Coastal park with diverse wildlife and hiking trails',
-            'location': 'Bako'
-          }
-        ];
-      case 'shopping':
-        return [
-          {
-            'id': 'craft1',
-            'name': 'Traditional Pua Kumbu Textile',
-            'description': 'Hand-woven ceremonial blanket with intricate patterns',
-            'location': 'Main Bazaar',
-            'price': '299.00'
-          },
-          {
-            'id': 'craft2',
-            'name': 'Orang Ulu Beaded Necklace',
-            'description': 'Handcrafted beaded jewelry with traditional motifs',
-            'location': 'Kuching Old Town',
-            'price': '89.00'
-          },
-          {
-            'id': 'craft3',
-            'name': 'Bidayuh Bamboo Basket',
-            'description': 'Traditional hand-woven bamboo basket',
-            'location': 'Satok Market',
-            'price': '149.00'
-          },
-          {
-            'id': 'craft4',
-            'name': 'Sarawak Black Pepper Products',
-            'description': 'Premium grade Sarawak black pepper',
-            'location': 'Carpenter Street',
-            'price': '25.00'
-          },
-          {
-            'id': 'craft5',
-            'name': 'Melanau Terendak Hat',
-            'description': 'Traditional conical hat made from sago leaves',
-            'location': 'India Street',
-            'price': '79.00'
-          },
-          {
-            'id': 'craft6',
-            'name': 'Iban Silver Jewelry Set',
-            'description': 'Handcrafted silver jewelry with tribal motifs',
-            'location': 'Main Bazaar',
-            'price': '399.00'
-          }
-        ];
-      default:
-        return [];
-    }
-  }
-} */
+}
