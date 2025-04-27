@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "CRUX Docs": {
+      "type": "sse",
+      "url": "https://gitmcp.io/snoweyew/CRUX"
+    }
+  }
+}

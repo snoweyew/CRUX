@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "728450168071",
+    "project_id": "sta-app-2e28b",
+    "storage_bucket": "sta-app-2e28b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:728450168071:android:ec1934e49fa6b946dc41a2",
+        "android_client_info": {
+          "package_name": "com.example.sarawak_travel_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBtuGmeJ_XHb4uJuK-plEpozfsK2x-9QGY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

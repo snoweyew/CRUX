@@ -1,0 +1,17 @@
+{
+  "dart.flutterRunAdditionalArgs": [
+    "--enable-software-rendering"
+  ],
+  "dart.flutterSdkPath": "/home/yew/snap/flutter/common/flutter",
+  "dart.autoRun": true,
+  "dart.autoRunWhenInTest": true,
+  "dart.autoRunWhenInTestFile": true,
+  "editor.quickSuggestions": {
+    "comments": "off",
+    "strings": "off",
+    "other": "off"
+  },
+  "lldb.library": "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/LLDB",
+  "lldb.launch.expressions": "native",
+  "java.configuration.updateBuildConfiguration": "automatic"
+}
