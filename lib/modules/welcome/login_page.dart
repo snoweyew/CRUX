@@ -52,25 +52,32 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
+      // Remove the third argument (widget.userRole)
       final user = await widget.authService.signInWithEmailAndPassword(
         _emailController.text,
         _passwordController.text,
-        widget.userRole,
       );
       
       if (mounted) {
-        if (widget.userRole == 'stb_staff') {
+        // Check the role from the returned user object instead of widget.userRole
+        if (user != null && user.role == 'stb_staff') {
           // Navigate to STB dashboard
           widget.navigationService.navigateToReplacement(
             '/stb_dashboard',
             arguments: user,
           );
-        } else {
-          // Navigate to local guide dashboard
+        // Check the role from the returned user object instead of widget.userRole
+        } else if (user != null && user.role == 'local_guide') {
+          // Navigate to local guide dashboard (changed from /local_submission)
           widget.navigationService.navigateToReplacement(
-            '/local_submission',
+            '/local_main', // Changed route
             arguments: user,
           );
+        } else {
+          // Handle cases where user is null or role doesn't match expected
+          setState(() {
+            _errorMessage = 'Login failed. Please check your credentials or role.';
+          });
         }
       }
     } catch (e) {
@@ -357,4 +364,4 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
-} 
+}

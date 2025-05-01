@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../shared/models/user_model.dart';
 import '../../shared/models/local_submission_model.dart';
+import '../../shared/services/supabase_submission_service.dart';
 import 'submission_history_page.dart';
 
 class LocalSubmissionPage extends StatefulWidget {
   final UserModel user;
+  final SupabaseSubmissionService submissionService;
 
   const LocalSubmissionPage({
     Key? key,
     required this.user,
+    required this.submissionService,
   }) : super(key: key);
 
   @override
@@ -32,9 +35,9 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
   int _endHour = 5;
   bool _endIsAM = false;
 
-  // Mock location data
-  double _mockLatitude = 1.5533;
-  double _mockLongitude = 110.3592;
+  // Location data
+  double? _latitude;
+  double? _longitude;
 
   final List<String> _categories = ['food', 'experience', 'attraction'];
   final List<int> _hours = List.generate(12, (index) => index + 1);
@@ -111,8 +114,8 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
       if (mounted) {
         setState(() {
           // Update with mock location data
-          _mockLatitude += 0.001; // Slightly change location for testing
-          _mockLongitude += 0.001;
+          _latitude = 1.5533; // Slightly change location for testing
+          _longitude = 110.3592;
           _locationController.text = 'Jalan Padungan, Kuching, Sarawak'; // Mock address
         });
       }
@@ -164,6 +167,76 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
       if (mounted) {
         setState(() {
           _isCapturingPhoto = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_photoUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please capture a photo'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final startTime = TimeOfDay(hour: _startHour + (_startIsAM ? 0 : 12), minute: 0);
+      final endTime = TimeOfDay(hour: _endHour + (_endIsAM ? 0 : 12), minute: 0);
+
+      await widget.submissionService.createSubmission(
+        user: widget.user,
+        name: _nameController.text,
+        location: _locationController.text,
+        category: _selectedCategory,
+        description: _descriptionController.text,
+        photoUrl: _photoUrl!,
+        latitude: _latitude!,
+        longitude: _longitude!,
+        startTime: startTime,
+        endTime: endTime,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Submission created successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate to submission history
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SubmissionHistoryPage(
+              user: widget.user,
+              submissionService: widget.submissionService,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error creating submission: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
         });
       }
     }
@@ -300,7 +373,7 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
                               const Icon(Icons.map, size: 48, color: Colors.grey),
                               const SizedBox(height: 8),
                               Text(
-                                'Map Preview\nLat: $_mockLatitude\nLng: $_mockLongitude',
+                                'Map Preview\nLat: $_latitude\nLng: $_longitude',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: Colors.grey[600]),
                               ),
@@ -564,80 +637,7 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting
-                      ? null
-                      : () async {
-                          if (_formKey.currentState!.validate()) {
-                            setState(() {
-                              _isSubmitting = true;
-                            });
-
-                            try {
-                              // Create submission object
-                              final submission = LocalSubmission(
-                                id: DateTime.now().millisecondsSinceEpoch.toString(), // In production, use UUID
-                                userId: widget.user.id,
-                                name: _nameController.text,
-                                location: _locationController.text,
-                                category: _selectedCategory,
-                                description: _descriptionController.text,
-                                photoUrl: _photoUrl,
-                                submittedAt: DateTime.now(),
-                                latitude: _mockLatitude,
-                                longitude: _mockLongitude,
-                                startTime: TimeOfDay(
-                                  hour: _startHour + (_startIsAM ? 0 : 12),
-                                  minute: 0,
-                                ),
-                                endTime: TimeOfDay(
-                                  hour: _endHour + (_endIsAM ? 0 : 12),
-                                  minute: 0,
-                                ),
-                              );
-
-                              // TODO: Send to API
-                              await Future.delayed(const Duration(seconds: 1));
-
-                              if (mounted) {
-                                // Show success message
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Submission successful!'),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-
-                                // Clear form
-                                _formKey.currentState!.reset();
-                                setState(() {
-                                  _photoUrl = null;
-                                  _startHour = 9;
-                                  _startIsAM = true;
-                                  _endHour = 5;
-                                  _endIsAM = false;
-                                  _nameController.clear();
-                                  _locationController.clear();
-                                  _descriptionController.clear();
-                                });
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Error submitting: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            } finally {
-                              if (mounted) {
-                                setState(() {
-                                  _isSubmitting = false;
-                                });
-                              }
-                            }
-                          }
-                        },
+                  onPressed: _isSubmitting ? null : _submitForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2C2C2C),
                     padding: const EdgeInsets.symmetric(vertical: 16),

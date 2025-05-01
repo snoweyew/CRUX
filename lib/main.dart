@@ -7,6 +7,7 @@ import 'shared/services/navigation_service.dart';
 import 'shared/services/mock_data_service.dart';
 import 'shared/services/azure_auth_service.dart';
 import 'shared/config/app_config.dart';
+import 'config/supabase_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +46,10 @@ class _AppLoaderState extends State<AppLoader> {
       // Initialize Firebase
       await Firebase.initializeApp();
       print('Firebase initialized successfully');
+
+      // Initialize Supabase
+      await SupabaseConfig.initialize();
+      print('Supabase initialized successfully');
 
       // If everything succeeds, launch main app
       if (mounted) {

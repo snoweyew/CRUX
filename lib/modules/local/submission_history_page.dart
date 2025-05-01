@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import '../../shared/models/user_model.dart';
 import '../../shared/models/local_submission_model.dart';
 import '../../shared/models/voucher_model.dart';
+import '../../shared/services/supabase_submission_service.dart';
 
 class SubmissionHistoryPage extends StatefulWidget {
   final UserModel user;
+  final SupabaseSubmissionService submissionService;
 
   const SubmissionHistoryPage({
     Key? key,
     required this.user,
+    required this.submissionService,
   }) : super(key: key);
 
   @override
@@ -33,42 +36,7 @@ class _SubmissionHistoryPageState extends State<SubmissionHistoryPage> with Sing
     });
 
     try {
-      // TODO: Replace with actual API calls
-      await Future.delayed(const Duration(seconds: 1));
-
-      // Mock data
-      _submissions = [
-        LocalSubmission(
-          id: '1',
-          userId: widget.user.id,
-          name: 'Kuching Waterfront',
-          location: 'Jalan Main Bazaar, 93000 Kuching',
-          category: 'attraction',
-          description: 'Beautiful waterfront with amazing sunset views',
-          photoUrl: 'https://picsum.photos/200',
-          submittedAt: DateTime.now().subtract(const Duration(days: 2)),
-          latitude: 1.557,
-          longitude: 110.349,
-          startTime: const TimeOfDay(hour: 9, minute: 0),
-          endTime: const TimeOfDay(hour: 22, minute: 0),
-          status: SubmissionStatus.approved,
-        ),
-        LocalSubmission(
-          id: '2',
-          userId: widget.user.id,
-          name: 'Sarawak Cultural Village',
-          location: 'Pantai Damai, 93752 Kuching',
-          category: 'experience',
-          description: 'Living museum showcasing Sarawak\'s cultural diversity',
-          photoUrl: 'https://picsum.photos/200',
-          submittedAt: DateTime.now().subtract(const Duration(days: 1)),
-          latitude: 1.741,
-          longitude: 110.321,
-          startTime: const TimeOfDay(hour: 9, minute: 0),
-          endTime: const TimeOfDay(hour: 17, minute: 0),
-          status: SubmissionStatus.pending,
-        ),
-      ];
+      _submissions = await widget.submissionService.getUserSubmissions(widget.user.id);
 
       if (mounted) {
         setState(() {

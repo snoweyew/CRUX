@@ -72,11 +72,12 @@ class _RegisterPageState extends State<RegisterPage> {
           barrierDismissible: false,
           builder: (context) => AlertDialog(
             title: const Text('Registration Successful'),
-            content: const Text('You have successfully registered. Please login to continue.'),
+            // Updated message to mention email confirmation
+            content: const Text('You have successfully registered. Please check your email to confirm your account before logging in.'),
             actions: [
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop();
+                  Navigator.of(context).pop(); // Close dialog
                   // Navigate back to login page
                   widget.navigationService.navigateToReplacement(
                     '/login',

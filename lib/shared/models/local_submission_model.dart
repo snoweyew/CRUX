@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+enum SubmissionStatus {
+  pending,
+  approved,
+  rejected
+}
+
 class LocalSubmission {
   final String id;
   final String userId;
@@ -33,38 +39,19 @@ class LocalSubmission {
     this.rejectionReason,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'userId': userId,
-      'name': name,
-      'location': location,
-      'category': category,
-      'description': description,
-      'photoUrl': photoUrl,
-      'submittedAt': submittedAt.toIso8601String(),
-      'latitude': latitude,
-      'longitude': longitude,
-      'startTime': '${startTime.hour}:${startTime.minute}',
-      'endTime': '${endTime.hour}:${endTime.minute}',
-      'status': status.toString(),
-      'rejectionReason': rejectionReason,
-    };
-  }
-
   factory LocalSubmission.fromJson(Map<String, dynamic> json) {
-    final startTimeParts = (json['startTime'] as String).split(':');
-    final endTimeParts = (json['endTime'] as String).split(':');
+    final startTimeParts = (json['start_time'] as String).split(':');
+    final endTimeParts = (json['end_time'] as String).split(':');
 
     return LocalSubmission(
       id: json['id'],
-      userId: json['userId'],
+      userId: json['user_id'],
       name: json['name'],
       location: json['location'],
       category: json['category'],
       description: json['description'],
-      photoUrl: json['photoUrl'],
-      submittedAt: DateTime.parse(json['submittedAt']),
+      photoUrl: json['photo_url'],
+      submittedAt: DateTime.parse(json['submitted_at']),
       latitude: json['latitude'],
       longitude: json['longitude'],
       startTime: TimeOfDay(
@@ -73,19 +60,32 @@ class LocalSubmission {
       ),
       endTime: TimeOfDay(
         hour: int.parse(endTimeParts[0]),
-        minute: int.parse(endTimeParts[1]),
+        minute: int.parse(startTimeParts[1]),
       ),
       status: SubmissionStatus.values.firstWhere(
-        (e) => e.toString() == json['status'],
+        (e) => e.toString().split('.').last == json['status'],
         orElse: () => SubmissionStatus.pending,
       ),
-      rejectionReason: json['rejectionReason'],
+      rejectionReason: json['rejection_reason'],
     );
   }
-}
 
-enum SubmissionStatus {
-  pending,
-  approved,
-  rejected
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'name': name,
+      'location': location,
+      'category': category,
+      'description': description,
+      'photo_url': photoUrl,
+      'submitted_at': submittedAt.toIso8601String(),
+      'latitude': latitude,
+      'longitude': longitude,
+      'start_time': '${startTime.hour}:${startTime.minute}',
+      'end_time': '${endTime.hour}:${endTime.minute}',
+      'status': status.toString().split('.').last,
+      'rejection_reason': rejectionReason,
+    };
+  }
 } 

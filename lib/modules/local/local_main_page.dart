@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../shared/models/user_model.dart';
+import '../../shared/services/supabase_submission_service.dart';
 import 'local_submission_page.dart';
 import 'submission_history_page.dart';
 
 class LocalMainPage extends StatefulWidget {
   final UserModel user;
+  final SupabaseSubmissionService submissionService;
 
   const LocalMainPage({
     Key? key,
     required this.user,
+    required this.submissionService,
   }) : super(key: key);
 
   @override
@@ -24,8 +27,14 @@ class _LocalMainPageState extends State<LocalMainPage> {
   void initState() {
     super.initState();
     _pages = [
-      LocalSubmissionPage(user: widget.user),
-      SubmissionHistoryPage(user: widget.user),
+      LocalSubmissionPage(
+        user: widget.user,
+        submissionService: widget.submissionService,
+      ),
+      SubmissionHistoryPage(
+        user: widget.user,
+        submissionService: widget.submissionService,
+      ),
       _buildRedemptionPage(),
     ];
   }

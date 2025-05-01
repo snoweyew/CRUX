@@ -19,6 +19,7 @@ import 'shared/models/user_model.dart';
 import 'shared/services/http_service.dart';
 import 'package:mysql_client/mysql_client.dart';
 import 'package:http/http.dart' as http;
+import 'shared/services/supabase_submission_service.dart';
 
 class AppRouter {
   final AuthService authService;
@@ -83,11 +84,12 @@ class AppRouter {
             mockDataService: mockDataService,
           ),
         );
-      case '/local_submission':
+      case '/local_main': 
         final UserModel user = settings.arguments as UserModel;
         return MaterialPageRoute(
           builder: (_) => LocalMainPage(
             user: user,
+            submissionService: SupabaseSubmissionService(),
           ),
         );
       case '/city_selection':
