@@ -30,6 +30,10 @@ class ItineraryModel {
       // Clear used activities for new itinerary
       _usedActivities.clear();
 
+      // Extract location first, defaulting to KUCHING if not present
+      final String locationName = json['location']?.toString().toUpperCase() ?? 'KUCHING';
+      print('\nDEBUG: Processing itinerary for location: $locationName');
+
       // Extract preferences directly from the response data
       final Map<String, dynamic> preferences = {
         'food_experiences': json['food_experiences'] ?? 5,
@@ -81,7 +85,7 @@ class ItineraryModel {
                     'type': 'food',
                     'activity': activity,
                     'time_slot': timeSlot,
-                  });
+                  }, json['location']?.toString() ?? 'Unknown City'); // Pass city name
                   if (!allActivities['food']!.any((a) => a.name == foodActivity.name)) {
                     allActivities['food']!.add(foodActivity);
                   }
@@ -100,7 +104,7 @@ class ItineraryModel {
                     'type': 'attraction',
                     'activity': activity,
                     'time_slot': timeSlot,
-                  });
+                  }, json['location']?.toString() ?? 'Unknown City'); // Pass city name
                   if (!allActivities['attraction']!.any((a) => a.name == attractionActivity.name)) {
                     allActivities['attraction']!.add(attractionActivity);
                   }
@@ -119,7 +123,7 @@ class ItineraryModel {
                     'type': 'experience',
                     'activity': activity,
                     'time_slot': timeSlot,
-                  });
+                  }, json['location']?.toString() ?? 'Unknown City'); // Pass city name
                   if (!allActivities['experience']!.any((a) => a.name == experienceActivity.name)) {
                     allActivities['experience']!.add(experienceActivity);
                   }
@@ -200,25 +204,48 @@ class ItineraryModel {
               description = 'Try popular Sarawak snacks like Tebaloi (sago crackers), Sarawak Pineapple Tarts, and traditional rice cakes.';
             }
 
-            // Add specific restaurant locations based on meal type
+            // Add specific restaurant locations based on meal type and city
             String location;
             String address;
-            if (mealType == 'Breakfast') {
-              location = 'Chong Choon Cafe';
-              address = 'Ground Floor, 275, Jalan Chan Chin Ann, 93100 Kuching';
-            } else if (mealType == 'Lunch') {
-              location = 'Top Spot Food Court';
-              address = '6th Floor, Bukit Mata Street, 93100 Kuching';
-            } else if (mealType == 'Tea Time') {
-              location = 'Kek Lapis Dayang Salhah';
-              address = 'Ground Floor, 34, Jalan Tunku Abdul Rahman, 93100 Kuching';
-            } else if (mealType == 'Dinner') {
-              location = 'Lepau Restaurant';
-              address = '79 Jalan Ban Hock, 93100 Kuching';
-            } else {
-              location = 'Min Joo Cafe';
-              address = '35 Carpenter Street, 93000 Kuching';
+            // --- CITY-SPECIFIC FALLBACK LOGIC --- 
+            if (locationName == 'MIRI') {
+              // Miri Fallback Examples
+              if (mealType == 'Breakfast') {
+                location = 'Miri Central Market';
+                address = 'Jalan Brooke, 98000 Miri, Sarawak';
+              } else if (mealType == 'Lunch') {
+                location = 'Ming Cafe';
+                address = 'Jalan Yu Seng Selatan, 98000 Miri, Sarawak';
+              } else if (mealType == 'Tea Time') {
+                location = 'Miri Handicraft Centre';
+                address = 'Jalan Brooke, 98000 Miri, Sarawak';
+              } else if (mealType == 'Dinner') {
+                location = 'Seahorse Restaurant';
+                address = 'Marina Bay, 98000 Miri, Sarawak';
+              } else {
+                location = 'Local Coffee Shop';
+                address = 'Miri City Center, 98000 Miri, Sarawak';
+              }
+            } else { 
+              // Default to Kuching Fallback Examples (or add more cities)
+              if (mealType == 'Breakfast') {
+                location = 'Choon Hui Cafe';
+                address = 'Ground Floor, 275, Jalan Chan Chin Ann, 93100 Kuching, Sarawak';
+              } else if (mealType == 'Lunch') {
+                location = 'Top Spot Food Court';
+                address = '6th Floor, Bukit Mata Street, 93100 Kuching, Sarawak';
+              } else if (mealType == 'Tea Time') {
+                location = 'Kek Lapis Dayang Salhah';
+                address = 'Ground Floor, 34, Jalan Tunku Abdul Rahman, 93100 Kuching, Sarawak';
+              } else if (mealType == 'Dinner') {
+                location = 'Lepau Restaurant';
+                address = '79 Jalan Ban Hock, 93100 Kuching, Sarawak';
+              } else {
+                location = 'Min Joo Cafe';
+                address = '35 Carpenter Street, 93000 Kuching, Sarawak';
+              }
             }
+            // --- END CITY-SPECIFIC FALLBACK --- 
             
             foodActivity = Activity(
               type: 'food',
@@ -241,19 +268,39 @@ class ItineraryModel {
             String attractionAddress;
             String attractionDescription;
 
-            if (i == 0) {
-              attractionName = 'Sarawak Cultural Village';
-              attractionAddress = 'Pantai Damai, Jalan Santubong, 93050 Kuching';
-              attractionDescription = 'Experience the living museum showcasing Sarawak\'s rich cultural heritage with traditional houses, cultural performances, and craft demonstrations.';
-            } else if (i == 1) {
-              attractionName = 'Bako National Park';
-              attractionAddress = 'Bako, 93050 Kuching';
-              attractionDescription = 'Explore Sarawak\'s oldest national park featuring diverse wildlife, pristine beaches, and unique rock formations. Home to proboscis monkeys and various tropical species.';
+            // --- CITY-SPECIFIC FALLBACK LOGIC --- 
+            if (locationName == 'MIRI') {
+              // Miri Fallback Examples
+              if (i == 0) {
+                attractionName = 'Niah National Park';
+                attractionAddress = 'Niah Caves, 98200 Miri, Sarawak';
+                attractionDescription = 'Explore the vast cave system and archaeological sites at Niah National Park.';
+              } else if (i == 1) {
+                attractionName = 'Canada Hill';
+                attractionAddress = 'Jalan Peninsula, 98000 Miri, Sarawak';
+                attractionDescription = 'Visit the site of Malaysia\'s first oil well and enjoy panoramic views of Miri.';
+              } else {
+                attractionName = 'Miri City Fan';
+                attractionAddress = 'Jalan Kipas, 98000 Miri, Sarawak';
+                attractionDescription = 'Relax in this unique fan-shaped park featuring gardens, library, and amphitheater.';
+              }
             } else {
-              attractionName = 'Semenggoh Wildlife Centre';
-              attractionAddress = 'Jalan Tun Abang Haji Openg, 93000 Kuching';
-              attractionDescription = 'Visit the renowned orangutan rehabilitation center to observe semi-wild orangutans in their natural habitat during feeding times.';
+              // Default to Kuching Fallback Examples
+              if (i == 0) {
+                attractionName = 'Sarawak Cultural Village';
+                attractionAddress = 'Pantai Damai, Jalan Santubong, 93050 Kuching, Sarawak';
+                attractionDescription = 'Experience the living museum showcasing Sarawak\'s rich cultural heritage.';
+              } else if (i == 1) {
+                attractionName = 'Bako National Park';
+                attractionAddress = 'Bako, 93050 Kuching, Sarawak';
+                attractionDescription = 'Explore Sarawak\'s oldest national park, home to diverse wildlife and unique rock formations.';
+              } else {
+                attractionName = 'Semenggoh Wildlife Centre';
+                attractionAddress = 'Jalan Tun Abang Haji Openg, 93000 Kuching, Sarawak';
+                attractionDescription = 'Visit the orangutan rehabilitation center.';
+              }
             }
+            // --- END CITY-SPECIFIC FALLBACK --- 
 
             attractionActivity = Activity(
               type: 'attraction',
@@ -276,15 +323,31 @@ class ItineraryModel {
             String experienceAddress;
             String experienceDescription;
 
-            if (i == 0) {
-              experienceName = 'Traditional Sarawak Craft Workshop';
-              experienceAddress = 'Main Bazaar, 93000 Kuching';
-              experienceDescription = 'Learn traditional Sarawak crafts like beadwork, weaving, or pottery making from local artisans. Take home your own handmade souvenir.';
+            // --- CITY-SPECIFIC FALLBACK LOGIC --- 
+            if (locationName == 'MIRI') {
+              // Miri Fallback Examples
+              if (i == 0) {
+                experienceName = 'Oil Town Heritage Walk';
+                experienceAddress = 'Grand Old Lady, Canada Hill, 98000 Miri, Sarawak';
+                experienceDescription = 'Discover Miri\'s history as an oil town starting from the first oil well.';
+              } else {
+                experienceName = 'Miri Night Market Visit';
+                experienceAddress = 'Miri Handicraft Centre area, Jalan Brooke, 98000 Miri, Sarawak';
+                experienceDescription = 'Explore local food, crafts, and goods at the vibrant night market.';
+              }
             } else {
-              experienceName = 'Evening Cultural Performance';
-              experienceAddress = 'Waterfront, Jalan Main Bazaar, 93000 Kuching';
-              experienceDescription = 'Experience traditional Sarawak dance and music performances including Ngajat, Datun Julud, and live sape music by local performers.';
+              // Default to Kuching Fallback Examples
+              if (i == 0) {
+                experienceName = 'Traditional Sarawak Craft Workshop';
+                experienceAddress = 'Main Bazaar, 93000 Kuching, Sarawak';
+                experienceDescription = 'Learn traditional Sarawak crafts like beadwork or weaving.';
+              } else {
+                experienceName = 'Evening Cultural Performance';
+                experienceAddress = 'Waterfront, Jalan Main Bazaar, 93000 Kuching, Sarawak';
+                experienceDescription = 'Experience traditional Sarawak dance and music performances.';
+              }
             }
+            // --- END CITY-SPECIFIC FALLBACK --- 
 
             experienceActivity = Activity(
               type: 'experience',
@@ -376,7 +439,7 @@ class ItineraryModel {
       }
 
       return ItineraryModel(
-        location: json['location']?.toString().toUpperCase() ?? 'KUCHING',
+        location: locationName, // Use the extracted locationName
         generatedAt: DateTime.now(),
         days: days,
         preferences: preferences,
@@ -443,7 +506,7 @@ class Activity {
     this.description,
   });
 
-  factory Activity.fromJson(Map<String, dynamic> json) {
+  factory Activity.fromJson(Map<String, dynamic> json, String cityName) { // Added cityName parameter
     String type = json['type']?.toString().toLowerCase() ?? '';
     String name = json['name']?.toString() ?? '';
     String address = json['address']?.toString() ?? '';
@@ -475,43 +538,35 @@ class Activity {
         address = parts[1].trim();
       } else {
         name = activityStr.replaceFirst(RegExp(r'^(Food:|Attraction:|Experience:)\s*'), '').trim();
-        // Set a default address if none provided
-        address = 'Kuching City Center';
+        // Set a default address using the provided city name if none provided
+        address = '$cityName City Center'; // Use cityName
       }
     }
 
-    // Enhance address formatting
-    if (!address.toLowerCase().contains('kuching')) {
-      address = '$address, Kuching';
+    // Enhance address formatting using the correct city name
+    if (!address.toLowerCase().contains(cityName.toLowerCase())) {
+      address = '$address, $cityName'; // Use cityName
     }
     
     if (!address.toLowerCase().contains('sarawak')) {
       address = '$address, Sarawak';
     }
 
-    // Add postal code if missing
+    // Add postal code if missing - Generic placeholder, remove city-specific logic
     if (!RegExp(r'\d{5}').hasMatch(address)) {
-      // Use specific postal codes for known areas
-      if (address.toLowerCase().contains('waterfront')) {
-        address = '$address, 93000';
-      } else if (address.toLowerCase().contains('padungan')) {
-        address = '$address, 93100';
-      } else if (address.toLowerCase().contains('pending')) {
-        address = '$address, 93450';
-      } else if (address.toLowerCase().contains('santubong') || 
-                 address.toLowerCase().contains('damai')) {
-        address = '$address, 93050';
-      } else if (address.toLowerCase().contains('batu kawa')) {
-        address = '$address, 93250';
-      } else if (address.toLowerCase().contains('batu lintang')) {
-        address = '$address, 93200';
-      } else if (address.toLowerCase().contains('petra jaya')) {
-        address = '$address, 93050';
-      } else {
-        // Default postal code for central Kuching
-        address = '$address, 93000';
+      // Add a generic Sarawak postal code or leave it out if unknown
+      // For Miri, common codes are 98000, 98100 etc. For Kuching 93xxx.
+      // Let's add a placeholder or determine based on city if possible.
+      // For now, adding a common Miri code if city is Miri, else Kuching default.
+      // A better approach would be a lookup map or letting the API provide it.
+      if (cityName.toLowerCase() == 'miri') {
+         address = '$address, 98000'; // Example Miri postcode
+      } else if (cityName.toLowerCase() == 'kuching') {
+         address = '$address, 93000'; // Example Kuching postcode
       }
+      // Add more cities here if needed
     }
+
 
     // Add landmark/building details if available
     if (name.toLowerCase().contains('at ')) {
@@ -528,7 +583,9 @@ class Activity {
                     .replaceAll(RegExp(r',\s*$'), '')
                     .trim();
 
-    // Add specific location details based on type
+    // Add specific location details based on type - Removed generic "Restaurant/Cafe" prefix
+    // This should ideally come from the API data itself.
+    /*
     if (type == 'food' && !address.toLowerCase().contains('food court') && 
         !address.toLowerCase().contains('restaurant') && 
         !address.toLowerCase().contains('cafe')) {
@@ -538,6 +595,7 @@ class Activity {
         address = 'Restaurant/Cafe, $address';
       }
     }
+    */
 
     return Activity(
       type: type,
@@ -557,4 +615,4 @@ class Activity {
       if (description != null) 'description': description,
     };
   }
-} 
+}
