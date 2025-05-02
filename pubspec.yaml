@@ -49,6 +49,7 @@ dependencies:
   supabase_flutter: ^2.3.4
   supabase: ^2.0.8
   uuid: ^4.3.3
+  image_picker: ^1.1.2 # Add image_picker
 
 dev_dependencies:
   flutter_test:

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io'; // Import dart:io for File
+import 'package:image_picker/image_picker.dart'; // Import image_picker
 import '../../shared/models/user_model.dart';
 import '../../shared/models/local_submission_model.dart';
 import '../../shared/services/supabase_submission_service.dart';
@@ -24,7 +26,7 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
   final _locationController = TextEditingController();
   final _descriptionController = TextEditingController();
   String _selectedCategory = 'food';
-  String? _photoUrl;
+  XFile? _imageFile; // Store the picked image file
   bool _isSubmitting = false;
   bool _isGettingLocation = false;
   bool _isCapturingPhoto = false;
@@ -144,21 +146,46 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
       _isCapturingPhoto = true;
     });
 
+    final ImagePicker picker = ImagePicker();
     try {
-      // Simulate photo capture with a delay
-      await Future.delayed(const Duration(seconds: 1));
-      
-      if (mounted) {
+      // Ask user to choose between camera and gallery
+      final source = await showDialog<ImageSource>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Select Image Source'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, ImageSource.camera),
+              child: const Text('Camera'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, ImageSource.gallery),
+              child: const Text('Gallery'),
+            ),
+          ],
+        ),
+      );
+
+      if (source == null) {
+         if (mounted) {
+           setState(() { _isCapturingPhoto = false; });
+         }
+         return; // User cancelled
+      }
+
+      // Pick an image
+      final XFile? image = await picker.pickImage(source: source);
+
+      if (image != null && mounted) {
         setState(() {
-          // Mock photo URL for testing
-          _photoUrl = 'https://picsum.photos/200';
+          _imageFile = image;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error capturing photo: $e'),
+            content: Text('Error picking photo: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -174,21 +201,35 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_photoUrl == null) {
+    if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please capture a photo'),
+          content: Text('Please capture or select a photo'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
+    if (_latitude == null || _longitude == null) {
+       ScaffoldMessenger.of(context).showSnackBar(
+         const SnackBar(
+           content: Text('Please get the current location'),
+           backgroundColor: Colors.red,
+         ),
+       );
+       return;
+     }
 
     setState(() {
       _isSubmitting = true;
     });
 
+    String? uploadedPhotoUrl;
     try {
+      // 1. Upload the photo first
+      uploadedPhotoUrl = await widget.submissionService.uploadPhoto(_imageFile!.path);
+
+      // 2. Create the submission with the uploaded URL
       final startTime = TimeOfDay(hour: _startHour + (_startIsAM ? 0 : 12), minute: 0);
       final endTime = TimeOfDay(hour: _endHour + (_endIsAM ? 0 : 12), minute: 0);
 
@@ -198,7 +239,7 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
         location: _locationController.text,
         category: _selectedCategory,
         description: _descriptionController.text,
-        photoUrl: _photoUrl!,
+        photoUrl: uploadedPhotoUrl, // Use the uploaded URL
         latitude: _latitude!,
         longitude: _longitude!,
         startTime: startTime,
@@ -228,7 +269,9 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error creating submission: $e'),
+            content: Text(uploadedPhotoUrl == null
+                ? 'Error uploading photo: $e'
+                : 'Error creating submission: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -284,27 +327,14 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
                               strokeWidth: 2,
                             ),
                           )
-                        : _photoUrl != null
+                        : _imageFile != null
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  _photoUrl!,
+                                child: Image.file(
+                                  File(_imageFile!.path), // Display picked image
                                   width: 200,
                                   height: 200,
                                   fit: BoxFit.cover,
-                                  loadingBuilder: (context, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Center(
-                                      child: CircularProgressIndicator(
-                                        value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
-                                            : null,
-                                        color: const Color(0xFF2C2C2C),
-                                        strokeWidth: 2,
-                                      ),
-                                    );
-                                  },
                                   errorBuilder: (context, error, stackTrace) {
                                     return Column(
                                       mainAxisAlignment: MainAxisAlignment.center,
@@ -312,7 +342,7 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
                                         const Icon(Icons.error_outline, size: 48, color: Colors.grey),
                                         const SizedBox(height: 8),
                                         Text(
-                                          'Error loading image',
+                                          'Error displaying image', // Updated error message
                                           style: TextStyle(color: Colors.grey[600]),
                                         ),
                                       ],
@@ -666,4 +696,4 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
       ),
     );
   }
-} 
+}

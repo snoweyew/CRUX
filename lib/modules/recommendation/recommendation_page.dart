@@ -2,34 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/models/user_model.dart';
 import '../../shared/services/navigation_service.dart';
-// import '../../shared/services/mock_data_service.dart'; // No longer needed for recommendations
-import '../../shared/services/recommendation_service.dart'; // Import RecommendationService
-import '../../shared/config/app_config.dart'; // Import AppConfig if needed for mock data flag
+import '../../shared/services/recommendation_service.dart';
+import '../../shared/config/app_config.dart';
 import '../itinerary_personalization/itinerary_model.dart';
-import 'cart_item.dart'; // Ensure cart_item.dart is imported if it's separate
+import 'cart_item.dart'; // Keep this import
 
-class CartItem {
-  final String productId;
-  final String name;
-  final String location;
-  final double price;
-  final int quantity;
-  final String? imageUrl; // Add imageUrl field
-
-  CartItem({
-    required this.productId,
-    required this.name,
-    required this.location,
-    required this.price,
-    required this.quantity,
-    this.imageUrl, // Initialize imageUrl
-  });
-}
+// Import the new view files
+import 'views/attraction_view.dart';
+import 'views/event_view.dart';
+import 'views/cart_view.dart';
+import 'views/activity_view.dart';
+import 'views/food_view.dart';
+import 'views/recommendation_list_view_base.dart'; // For typedefs if needed directly
 
 class RecommendationPage extends StatefulWidget {
   final UserModel user;
   final NavigationService navigationService;
-  // final MockDataService mockDataService; // Removed
   final RecommendationService recommendationService; // Added
   final ItineraryModel? itinerary;
 
@@ -37,7 +25,6 @@ class RecommendationPage extends StatefulWidget {
     Key? key,
     required this.user,
     required this.navigationService,
-    // required this.mockDataService, // Removed
     required this.recommendationService, // Added
     required this.itinerary,
   }) : super(key: key);
@@ -47,13 +34,13 @@ class RecommendationPage extends StatefulWidget {
 }
 
 class _RecommendationPageState extends State<RecommendationPage> with SingleTickerProviderStateMixin {
-  final List<String> _categories = ['Events', 'Food', 'Experiences', 'Attractions', 'Shopping'];
+  final List<String> _categories = ['Attractions', 'Events', 'Cart', 'Activities', 'Food'];
   final List<IconData> _categoryIcons = [
-    Icons.event,
-    Icons.restaurant,
-    Icons.theater_comedy,
-    Icons.photo_camera,
-    Icons.shopping_bag,
+    Icons.photo_camera,    // Attractions
+    Icons.event,           // Events
+    Icons.shopping_cart,   // Cart
+    Icons.theater_comedy,  // Activities (was Experiences)
+    Icons.restaurant,      // Food
   ];
   int _selectedIndex = 0;
   List<CartItem> _cartItems = [];
@@ -95,7 +82,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
             _buildAppBar(),
             const SizedBox(height: 8),
             Expanded(
-              child: _buildRecommendationsList(), // This will now use FutureBuilder
+              child: _buildSelectedCategoryView(),
                 ),
               ],
             ),
@@ -130,8 +117,6 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
   }
 
   Widget _buildAppBar() {
-    final isShoppingCategory = _categories[_selectedIndex].toLowerCase() == 'shopping';
-    
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: const BoxDecoration(
@@ -159,41 +144,39 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (isShoppingCategory) ...[
-            const Spacer(),
-            Stack(
-          children: [
-                IconButton(
-                  icon: const Icon(Icons.shopping_cart, color: Colors.white),
-                  onPressed: () => _showCart(),
-                ),
-            if (_cartItems.isNotEmpty)
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  constraints: const BoxConstraints(
-                        minWidth: 20,
-                        minHeight: 20,
-                  ),
-                  child: Text(
-                    _cartItems.length.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                          fontSize: 12,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+          const Spacer(), // Pushes cart icon to the right
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                onPressed: () => _showCart(),
               ),
-          ],
-        ),
-          ],
+              if (_cartItems.isNotEmpty)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 20,
+                      minHeight: 20,
+                    ),
+                    child: Text(
+                      _cartItems.length.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
       ),
     );
@@ -520,85 +503,67 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
     );
   }
   
-  Widget _buildRecommendationsList() {
+  Widget _buildSelectedCategoryView() {
     if (_selectedCity == null || _selectedCity!.isEmpty) {
       return const Center(
         child: Text('No city selected. Please go back and select a destination.'),
       );
     }
 
-    final category = _categories[_selectedIndex].toLowerCase();
-
-    // Use FutureBuilder to fetch recommendations from the service
-    return FutureBuilder<List<Map<String, String>>>(
-      // Fetch data using the service. Assuming mock data for now.
-      // Replace with API calls if AppConfig.enableMockData is false and API supports city filtering.
-      future: Future.value(widget.recommendationService.getMockRecommendations(category, city: _selectedCity)),
-      // Example using API call (if API supported city filtering - currently it doesn't seem to):
-      // future: AppConfig.enableMockData
-      //     ? Future.value(widget.recommendationService.getMockRecommendations(category, city: _selectedCity))
-      //     : widget.recommendationService.fetchRecommendations(category, city: _selectedCity), // Hypothetical API call
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error loading recommendations: ${snapshot.error}'));
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Center(
-            child: Text('No recommendations found for $_selectedCity in the $category category.'),
-          );
-        }
-
-        final recommendations = snapshot.data!;
-        final isShoppingCategory = category == 'shopping';
-
-        // Use FadeTransition with the fetched data
-        return FadeTransition(
-          opacity: _fadeAnimation, // Consider resetting animation on category change
-          child: isShoppingCategory
-              ? GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.75,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: recommendations.length,
-                  itemBuilder: (context, index) {
-                    final recommendation = recommendations[index];
-                    // Using simple Opacity, consider removing TweenAnimationBuilder here
-                    // if FutureBuilder handles the loading state.
-                    return Opacity(
-                       opacity: 1.0, // Or keep TweenAnimationBuilder if preferred
-                       child: _buildShoppingCard(recommendation),
-                    );
-                  },
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  itemCount: recommendations.length,
-                  itemBuilder: (context, index) {
-                    final recommendation = recommendations[index];
-                    // Using simple Opacity, consider removing TweenAnimationBuilder here
-                    return Opacity(
-                      opacity: 1.0, // Or keep TweenAnimationBuilder if preferred
-                      child: _buildRecommendationCard(recommendation),
-                    );
-                  },
-                ),
+    // Use the public view widgets imported from separate files
+    switch (_selectedIndex) {
+      case 0: // Attractions
+        return AttractionView(
+          key: const ValueKey('attractions'), // Use ValueKey for efficient rebuilds
+          recommendationService: widget.recommendationService,
+          selectedCity: _selectedCity!,
+          fadeAnimation: _fadeAnimation,
+          cardBuilder: _buildRecommendationCard, // Pass the method reference
         );
-      },
-    );
+      case 1: // Events
+        return EventView(
+          key: const ValueKey('events'),
+          recommendationService: widget.recommendationService,
+          selectedCity: _selectedCity!,
+          fadeAnimation: _fadeAnimation,
+          cardBuilder: _buildRecommendationCard, // Pass the method reference
+        );
+      case 2: // Cart
+        return CartView(
+          key: const ValueKey('cart'), // Key reflects the UI purpose
+          recommendationService: widget.recommendationService,
+          selectedCity: _selectedCity!,
+          fadeAnimation: _fadeAnimation,
+          onAddToCart: _addToCart, // Pass the callback
+          shoppingCardBuilder: _buildShoppingCard, // Pass the shopping card builder method
+        );
+      case 3: // Activities
+        return ActivityView(
+          key: const ValueKey('activities'),
+          recommendationService: widget.recommendationService,
+          selectedCity: _selectedCity!,
+          fadeAnimation: _fadeAnimation,
+          cardBuilder: _buildRecommendationCard, // Pass the method reference
+        );
+      case 4: // Food
+        return FoodView(
+          key: const ValueKey('food'),
+          recommendationService: widget.recommendationService,
+          selectedCity: _selectedCity!,
+          fadeAnimation: _fadeAnimation,
+          cardBuilder: _buildRecommendationCard, // Pass the method reference
+        );
+      default:
+        return const Center(child: Text('Invalid category selected.'));
+    }
   }
 
-  Widget _buildRecommendationCard(Map<String, String> recommendation) {
+  // Helper method to build the standard recommendation card (remains in this state class)
+  Widget _buildRecommendationCard(BuildContext context, Map<String, String> recommendation) {
     final screenHeight = MediaQuery.of(context).size.height;
     final double cardHeight = screenHeight * 0.22; // Adjusted to 22% of screen height
     final imageUrl = recommendation['imageUrl']; // Get image URL
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 4,
@@ -695,8 +660,9 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
       ),
     );
   }
-  
-  Widget _buildShoppingCard(Map<String, String> recommendation) {
+
+  // Helper method to build the shopping card (remains in this state class)
+  Widget _buildShoppingCard(BuildContext context, Map<String, String> recommendation, ValueChanged<Map<String, String>> onAddToCart) {
     final imageUrl = recommendation['imageUrl']; // Get image URL
 
     return Card(
@@ -747,8 +713,8 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
                     right: 8,
                     bottom: 8,
                     child: FloatingActionButton.small(
-                      heroTag: null,
-                      onPressed: () => _addToCart(recommendation),
+                      heroTag: null, // Avoid hero tag conflicts if multiple cards
+                      onPressed: () => onAddToCart(recommendation), // Use the passed callback
                       backgroundColor: Theme.of(context).primaryColor,
                       child: const Icon(Icons.add_shopping_cart, size: 20),
                     ),
