@@ -75,6 +75,65 @@ class SupabaseSubmissionService {
     }
   }
 
+  // Get all submissions with a specific status (e.g., 'pending')
+  Future<List<LocalSubmission>> getSubmissionsByStatus(SubmissionStatus status) async {
+    // Note: STB users might need different RLS policies in Supabase
+    // to access all submissions.
+    try {
+      final response = await _supabase
+          .from('local_submissions')
+          .select()
+          .eq('status', status.toString().split('.').last) // Filter by status string
+          .order('submitted_at', ascending: true); // Show oldest first
+
+      return (response as List)
+          .map((json) => LocalSubmission.fromJson(json))
+          .toList();
+    } catch (e) {
+      print('Error getting submissions by status: $e');
+      rethrow;
+    }
+  }
+
+  // Update the status of a submission (for STB approval/rejection)
+  Future<LocalSubmission> updateSubmissionStatus({
+    required String submissionId,
+    required SubmissionStatus status,
+    String? rejectionReason,
+  }) async {
+    // Ensure the user performing this action has the necessary permissions (e.g., STB role)
+    // This might involve checking user metadata or roles, potentially fetched during login.
+    // For simplicity, we'll assume the logged-in user has permission.
+    final currentUser = _supabase.auth.currentUser;
+     if (currentUser == null) {
+       throw Exception('Not authenticated with Supabase');
+     }
+     // Add role check here if implemented, e.g.:
+     // if (currentUser.userMetadata?['role'] != 'stb_staff') {
+     //   throw Exception('User does not have permission to update status');
+     // }
+
+    try {
+      final updateData = {
+        'status': status.toString().split('.').last,
+        'rejection_reason': status == SubmissionStatus.rejected ? rejectionReason : null,
+        // Optionally update an 'approved_by' or 'reviewed_at' field
+      };
+
+      final response = await _supabase
+          .from('local_submissions')
+          .update(updateData)
+          .eq('id', submissionId)
+          .select()
+          .single();
+
+      return LocalSubmission.fromJson(response);
+    } catch (e) {
+      print('Error updating submission status: $e');
+      rethrow;
+    }
+  }
+
   // Update a submission
   Future<LocalSubmission> updateSubmission({
     required String submissionId,

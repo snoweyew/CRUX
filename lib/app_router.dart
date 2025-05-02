@@ -82,6 +82,7 @@ class AppRouter {
           builder: (_) => STBDashboardPage(
             user: user,
             mockDataService: mockDataService,
+            submissionService: SupabaseSubmissionService(),
           ),
         );
       case '/local_main': 

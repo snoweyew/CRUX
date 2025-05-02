@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../shared/models/user_model.dart';
 import '../../shared/services/mock_data_service.dart';
+import '../../shared/services/supabase_submission_service.dart'; // Import the service
 import 'widgets/visitor_stats_section.dart';
 import 'widgets/event_management_section.dart';
 import 'widgets/submission_section.dart';
@@ -102,11 +103,13 @@ class LocalSubmission {
 class STBDashboardPage extends StatefulWidget {
   final UserModel user;
   final MockDataService mockDataService;
+  final SupabaseSubmissionService submissionService; // Add submissionService
 
   const STBDashboardPage({
     Key? key,
     required this.user,
     required this.mockDataService,
+    required this.submissionService, // Require submissionService
   }) : super(key: key);
 
   @override
@@ -137,10 +140,12 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
     // Simulate loading data
     Future.delayed(const Duration(seconds: 1), () {
       final mockStats = _generateMockStats();
-      setState(() {
-        cityStats = mockStats;
-        isLoading = false;
-      });
+      if (mounted) { // Add mounted check
+        setState(() {
+          cityStats = mockStats;
+          isLoading = false;
+        });
+      }
     });
   }
 
@@ -174,15 +179,6 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
         status: index == 0 ? 'Upcoming' : 'Past',
       ));
 
-      final mockSubmissions = List.generate(2, (index) => LocalSubmission(
-        id: 'sub_${city.substring(0,3)}_$index',
-        title: 'Submission ${index + 1} for $city',
-        description: 'Details for submission ${index + 1}',
-        submitterName: 'Local Biz ${index + 1}',
-        date: DateTime.now().subtract(Duration(days: index * 2)),
-        status: 'Pending Review',
-      ));
-
       stats[city] = TouristStats(
         city: city,
         visitorCount: visitorCount,
@@ -194,7 +190,7 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
         },
         complaints: [],
         events: mockEvents,
-        pendingSubmissions: mockSubmissions,
+        pendingSubmissions: [], // Keep this empty, data comes from Supabase now
       );
     }
 
@@ -218,7 +214,7 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
           ),
         ),
       ),
-      body: isLoading
+      body: isLoading && _selectedIndex != 2 // Only show main loading for non-submission tabs
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -274,23 +270,34 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
   }
 
   Widget _buildPage() {
-    if (selectedCity == null) {
-      return const Center(child: Text('Please select a city'));
+    // Handle loading state specifically for sections needing mock data
+    if (isLoading && _selectedIndex != 2) {
+       return const Center(child: CircularProgressIndicator());
+    }
+    
+    // For Visitors and Events, check city and stats
+    if (_selectedIndex != 2) {
+      if (selectedCity == null) {
+        return const Center(child: Text('Please select a city'));
+      }
+      final stats = cityStats[selectedCity!];
+      if (stats == null) return const Center(child: Text('No data available for this city'));
+
+      switch (_selectedIndex) {
+        case 0:
+          return VisitorStatsSection(stats: stats);
+        case 1:
+          return EventManagementSection(stats: stats);
+      }
+    } 
+    // For Submissions, pass the service
+    else if (_selectedIndex == 2) {
+       // Pass the submissionService from the widget
+       return SubmissionSection(submissionService: widget.submissionService);
     }
 
-    final stats = cityStats[selectedCity!];
-    if (stats == null) return const Center(child: Text('No data available'));
-
-    switch (_selectedIndex) {
-      case 0:
-        return VisitorStatsSection(stats: stats);
-      case 1:
-        return EventManagementSection(stats: stats);
-      case 2:
-        return SubmissionSection(stats: stats);
-      default:
-        return const Center(child: Text('Page not found'));
-    }
+    // Default fallback
+    return const Center(child: Text('Page not found'));
   }
 
   Widget _buildHeader() {
