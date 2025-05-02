@@ -1,5 +1,5 @@
 buildscript {
-    val agpVersion = "8.2.2"
+    val agpVersion = "8.6.0" // Updated AGP version
     val kotlinVersion = "1.9.22"
     repositories {
         google()

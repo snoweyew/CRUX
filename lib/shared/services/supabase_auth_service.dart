@@ -10,10 +10,10 @@ class SupabaseAuthService {
   // Check if user is authenticated
   bool get isAuthenticated => currentUser != null;
 
-  // Sign in with Firebase user
-  Future<void> signInWithFirebaseUser({
+  // Sign in with user from another auth system or migration
+  Future<void> signInWithExternalAuth({
     required String email,
-    required String firebaseUid,
+    required String externalId,
   }) async {
     try {
       // Check if already signed in
@@ -22,8 +22,8 @@ class SupabaseAuthService {
         return;
       }
 
-      // Generate a secure password using Firebase UID
-      final securePassword = _generateSecurePassword(firebaseUid);
+      // Generate a secure password using external ID
+      final securePassword = _generateSecurePassword(externalId);
       
       try {
         // Try to sign in first
@@ -58,10 +58,10 @@ class SupabaseAuthService {
     }
   }
 
-  // Generate a secure password using Firebase UID
-  String _generateSecurePassword(String firebaseUid) {
-    // Use Firebase UID as a base and add some complexity
-    return '${firebaseUid}_${DateTime.now().year}#Sup@';
+  // Generate a secure password using external ID
+  String _generateSecurePassword(String externalId) {
+    // Use external ID as a base and add some complexity
+    return '${externalId}_${DateTime.now().year}#Sup@';
   }
 
   // Sign out

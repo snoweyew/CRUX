@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io'; // Import dart:io for File
 import 'package:image_picker/image_picker.dart'; // Import image_picker
+import 'package:geolocator/geolocator.dart'; // Import geolocator
 import '../../shared/models/user_model.dart';
 import '../../shared/models/local_submission_model.dart';
 import '../../shared/services/supabase_submission_service.dart';
@@ -110,15 +111,46 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
     });
 
     try {
-      // Simulate getting location with a delay
-      await Future.delayed(const Duration(seconds: 1));
-      
+      // Check for location permissions
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Location permissions are denied'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return; // Don't proceed if permission denied
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permissions are permanently denied, we cannot request permissions.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return; // Don't proceed if permission denied forever
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
       if (mounted) {
         setState(() {
-          // Update with mock location data
-          _latitude = 1.5533; // Slightly change location for testing
-          _longitude = 110.3592;
-          _locationController.text = 'Jalan Padungan, Kuching, Sarawak'; // Mock address
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+          // Update the location text field with coordinates for now
+          // TODO: Implement reverse geocoding to get address from coordinates
+          _locationController.text = 'Lat: ${_latitude?.toStringAsFixed(4)}, Lng: ${_longitude?.toStringAsFixed(4)}';
         });
       }
     } catch (e) {
@@ -382,73 +414,47 @@ class _LocalSubmissionPageState extends State<LocalSubmissionPage> {
               ),
               const SizedBox(height: 16),
 
-              // Mock Map View
-              Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    children: [
-                      // Mock Map (grey placeholder)
-                      Container(
-                        color: Colors.grey[200],
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.map, size: 48, color: Colors.grey),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Map Preview\nLat: $_latitude\nLng: $_longitude',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.grey[600]),
-                              ),
-                            ],
-                          ),
-                        ),
+              // Location Input with Get Location Button
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _locationController,
+                      decoration: const InputDecoration(
+                        labelText: 'Location Address / Coordinates',
+                        border: OutlineInputBorder(),
                       ),
-                      // Location Controls
-                      Positioned(
-                        right: 8,
-                        bottom: 8,
-                        child: FloatingActionButton.small(
-                          onPressed: _isGettingLocation ? null : _getCurrentLocation,
-                          backgroundColor: const Color(0xFF2C2C2C),
-                          child: _isGettingLocation
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.my_location),
-                        ),
-                      ),
-                    ],
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please get the location or enter an address';
+                        }
+                        return null;
+                      },
+                      // Read only if coordinates are set, allow manual input otherwise?
+                      // readOnly: _latitude != null && _longitude != null,
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Location Input
-              TextFormField(
-                controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Location Address',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a location';
-                  }
-                  return null;
-                },
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0), // Align button roughly with text field
+                    child: FloatingActionButton.small(
+                      onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                      backgroundColor: const Color(0xFF2C2C2C),
+                      tooltip: 'Get Current Location',
+                      child: _isGettingLocation
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.my_location),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 

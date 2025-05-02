@@ -1,8 +1,16 @@
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import 'supabase_auth_service.dart';
+
+// Extension method to check if email is verified
+extension UserExtension on User {
+  bool? hasVerifiedEmail() {
+    // Check email verification using user metadata
+    return userMetadata?['email_confirmed'] == true || 
+           userMetadata?['email_verified'] == true;
+  }
+}
 
 class AuthException implements Exception {
   final String code;
@@ -15,8 +23,7 @@ class AuthException implements Exception {
 }
 
 class AuthService {
-  final firebase_auth.FirebaseAuth _firebaseAuth = firebase_auth.FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
   final SupabaseAuthService _supabaseAuth = SupabaseAuthService();
   
   // Current logged in user
@@ -32,81 +39,75 @@ class AuthService {
   UserModel? get currentUser => _currentUser;
   
   AuthService() {
-    // Listen to Firebase auth state changes
-    _firebaseAuth.authStateChanges().listen((firebase_auth.User? firebaseUser) async {
-      if (firebaseUser != null) {
-        // Get user data from Firestore
+    // Listen to Supabase auth state changes
+    _supabase.auth.onAuthStateChange.listen((data) async {
+      final AuthChangeEvent event = data.event;
+      final Session? session = data.session;
+      
+      if (event == AuthChangeEvent.signedIn && session != null) {
         try {
-          final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
-          if (userDoc.exists) {
-            _currentUser = UserModel.fromJson({
-              'id': firebaseUser.uid,
-              'name': firebaseUser.displayName ?? 'User',
-              'email': firebaseUser.email,
-              'role': userDoc.data()?['role'] ?? 'tourist',
-              'selectedCity': userDoc.data()?['selectedCity'] ?? '',
-              'isEmailVerified': firebaseUser.emailVerified,
-              'visitorType': userDoc.data()?['visitorType'],
-            });
-
-            // Sign in to Supabase
-            if (firebaseUser.email != null) {
-              await _signInToSupabase(firebaseUser.email!, userDoc.data()?['role'] ?? 'tourist');
-            }
+          final user = session.user;
+          
+          // Get user data from Supabase profiles table
+          final response = await _supabase
+              .from('profiles')
+              .select()
+              .eq('id', user.id)
+              .single();
+              
+          if (response != null) {
+            _currentUser = UserModel(
+              id: user.id,
+              name: response['name'] ?? user.userMetadata?['name'] ?? 'User',
+              email: user.email,
+              role: response['role'] ?? 'tourist',
+              selectedCity: response['location'] ?? '',
+              isEmailVerified: user.hasVerifiedEmail() ?? false,
+              visitorType: response['visitor_type'],
+            );
           } else {
-            // If user document doesn't exist, create a basic user model
-            _currentUser = _userFromFirebase(firebaseUser);
+            // Basic user model if no profile exists
+            _currentUser = UserModel(
+              id: user.id,
+              name: user.userMetadata?['name'] ?? 'User',
+              email: user.email,
+              role: _getUserRole(user.email),
+              selectedCity: '',
+              isEmailVerified: user.hasVerifiedEmail() ?? false,
+            );
           }
         } catch (e) {
           print('Error in auth state change: $e');
-          // If there's an error getting user data, create a basic user model
-          _currentUser = _userFromFirebase(firebaseUser);
+          // Basic user model on error
+          _currentUser = _userFromSupabase(_supabase.auth.currentUser);
         }
-      } else {
+      } else if (event == AuthChangeEvent.signedOut) {
         _currentUser = null;
-        // Sign out from Supabase
-        await _supabaseAuth.signOut();
       }
       
       // Notify listeners
       _authStateController.add(_currentUser);
     });
   }
-
-  // Sign in to Supabase
-  Future<void> _signInToSupabase(String email, String role) async {
-    try {
-      final currentUser = _firebaseAuth.currentUser;
-      if (currentUser == null) {
-        throw AuthException('auth/not-signed-in', 'Not signed in to Firebase');
-      }
-
-      await _supabaseAuth.signInWithFirebaseUser(
-        email: email,
-        firebaseUid: currentUser.uid,
-      );
-    } catch (e) {
-      print('Error signing in to Supabase: $e');
-    }
-  }
   
-  // Helper to convert Firebase User to UserModel
-  UserModel _userFromFirebase(firebase_auth.User firebaseUser) {
+  // Helper to convert Supabase User to UserModel
+  UserModel? _userFromSupabase(User? user) {
+    if (user == null) return null;
+    
     return UserModel(
-      id: firebaseUser.uid,
-      name: firebaseUser.displayName ?? 'User',
-      email: firebaseUser.email,
-      role: _getUserRole(firebaseUser),
+      id: user.id,
+      name: user.userMetadata?['name'] ?? 'User',
+      email: user.email,
+      role: _getUserRole(user.email),
       selectedCity: '',
-      isEmailVerified: firebaseUser.emailVerified,
+      isEmailVerified: user.hasVerifiedEmail() ?? false,
     );
   }
   
-  // Get user role from custom claims or default to 'tourist'
-  String _getUserRole(firebase_auth.User firebaseUser) {
-    // In a real app, you would get this from Firebase custom claims
-    // For now, we'll determine based on email domain
-    final email = firebaseUser.email ?? '';
+  // Get user role from email domain or default to 'tourist'
+  String _getUserRole(String? email) {
+    if (email == null) return 'tourist';
+    
     if (email.contains('stb.gov')) {
       return 'stb_staff';
     } else if (email.contains('local.guide')) {
@@ -116,74 +117,63 @@ class AuthService {
     }
   }
 
-  // Fetch user data from Firestore
+  // Fetch user data from Supabase profiles
   Future<UserModel?> getUserData(String uid) async {
     try {
-      final userDoc = await _firestore.collection('users').doc(uid).get();
-      if (userDoc.exists) {
-        final data = userDoc.data()!;
-        final firebaseUser = _firebaseAuth.currentUser; // Get current Firebase user for emailVerified status
+      final response = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', uid)
+          .single();
+          
+      if (response != null) {
+        final user = _supabase.auth.currentUser;
         return UserModel.fromJson({
           'id': uid,
-          'name': data['name'] ?? firebaseUser?.displayName ?? 'User',
-          'email': data['email'] ?? firebaseUser?.email,
-          'role': data['role'] ?? 'tourist',
-          'selectedCity': data['selectedCity'] ?? '',
-          'isEmailVerified': firebaseUser?.emailVerified ?? false,
-          'visitorType': data['visitorType'],
+          'name': response['name'] ?? 'User',
+          'email': user?.email,
+          'role': response['role'] ?? 'tourist',
+          'selectedCity': response['location'] ?? '',
+          'isEmailVerified': user?.hasVerifiedEmail() ?? false,
+          'visitorType': response['visitor_type'],
         });
       }
-      return null; // User document doesn't exist
+      return null; // User profile doesn't exist
     } catch (e) {
       print('Error fetching user data: $e');
       return null; // Return null on error
     }
   }
 
+  // Sign in to Supabase
+  Future<void> _signInToSupabase(String email, String role) async {
+    try {
+      await _supabaseAuth.signInWithExternalAuth(
+        email: email,
+        externalId: _supabase.auth.currentUser?.id ?? DateTime.now().toString(),
+      );
+    } catch (e) {
+      print('Error signing in to Supabase: $e');
+    }
+  }
+
   // Sign in with email and password
   Future<UserModel?> signInWithEmailAndPassword(String email, String password) async {
     try {
-      // Sign in with Firebase
-      final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
+      final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      if (userCredential.user != null) {
-        // Get user data from Firestore
-        final userData = await getUserData(userCredential.user!.uid);
-        
-        // Sync with Supabase
-        await _syncSupabaseAuth(email, userCredential.user!.uid);
-        
+      if (response.user != null) {
+        // Get user data from profiles
+        final userData = await getUserData(response.user!.id);
         return userData;
       }
       return null;
     } catch (e) {
       print('Error signing in: $e');
       rethrow;
-    }
-  }
-
-  // Sync Firebase auth with Supabase
-  Future<void> _syncSupabaseAuth(String email, String firebaseUid) async {
-    try {
-      await _supabaseAuth.signInWithFirebaseUser(
-        email: email,
-        firebaseUid: firebaseUid,
-      );
-      
-      // Verify Supabase session
-      final isAuthenticated = await _supabaseAuth.verifySession();
-      if (!isAuthenticated) {
-        throw Exception('Failed to authenticate with Supabase after sync');
-      }
-      
-      print('Successfully synced Firebase auth with Supabase');
-    } catch (e) {
-      print('Error syncing with Supabase: $e');
-      // Rethrow the exception to signal failure
-      rethrow; 
     }
   }
 
@@ -195,63 +185,50 @@ class AuthService {
     String name,
   ) async {
     try {
-      final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
+      final response = await _supabase.auth.signUp(
         email: email,
         password: password,
+        data: {'name': name},
       );
       
-      if (userCredential.user == null) {
+      if (response.user == null) {
         throw AuthException('auth/unknown', 'An unknown error occurred');
       }
       
-      // Update user profile with name
-      await userCredential.user!.updateDisplayName(name);
+      final userId = response.user!.id;
       
-      // Create user document in Firestore
-      await _firestore.collection('users').doc(userCredential.user!.uid).set({
-        'role': role,
+      // Create user profile in Supabase
+      await _supabase.from('profiles').insert({
+        'id': userId,
         'name': name,
         'email': email,
-        'createdAt': FieldValue.serverTimestamp(),
+        'role': role,
+        'created_at': DateTime.now().toIso8601String(),
       });
-
-      // Sign in to Supabase
-      await _signInToSupabase(email, role);
-      
-      // Reload user to get updated profile
-      await userCredential.user!.reload();
-      final updatedUser = _firebaseAuth.currentUser;
-      
-      if (updatedUser == null) {
-        throw AuthException('auth/user-not-found', 'User not found after registration');
-      }
       
       // Create user model
       final user = UserModel(
-        id: updatedUser.uid,
+        id: userId,
         name: name,
         email: email,
         role: role,
         selectedCity: '',
-        isEmailVerified: updatedUser.emailVerified,
+        isEmailVerified: response.user!.hasVerifiedEmail() ?? false,
       );
       
       return user;
-    } on firebase_auth.FirebaseAuthException catch (e) {
-      throw AuthException(e.code, e.message ?? 'Registration failed');
+    } on AuthException catch (e) {
+      rethrow;
+    } catch (e) {
+      throw AuthException('auth/unknown', e.toString());
     }
   }
   
   // Sign out
   Future<void> signOut() async {
     try {
-      // Sign out from Supabase first
-      await _supabaseAuth.signOut();
-      
-      // Then sign out from Firebase
-      await _firebaseAuth.signOut();
-      
-      print('Successfully signed out from both Firebase and Supabase');
+      await _supabase.auth.signOut();
+      print('Successfully signed out from Supabase');
     } catch (e) {
       print('Error signing out: $e');
       rethrow;

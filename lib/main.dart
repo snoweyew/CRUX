@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'app_router.dart';
 import 'shared/services/auth_service.dart';
 import 'shared/services/navigation_service.dart';
@@ -43,10 +42,6 @@ class _AppLoaderState extends State<AppLoader> {
       // Load environment variables
       await dotenv.load(fileName: '.env');
       
-      // Initialize Firebase
-      await Firebase.initializeApp();
-      print('Firebase initialized successfully');
-
       // Initialize Supabase
       await SupabaseConfig.initialize();
       print('Supabase initialized successfully');
