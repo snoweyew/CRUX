@@ -34,15 +34,15 @@ class VisitorStatsSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${stats.visitorCount ~/ 2}', // Example calculation, adjust as needed
+                  '${stats.malaysianVisitors}', // Use actual malaysianVisitors count
                   style: const TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2C2C2C),
                   ),
                 ),
-                const SizedBox(height: 8),
-                _buildTrendIndicator(10.5), // Example data
+                // const SizedBox(height: 8),
+                // _buildTrendIndicator(10.5), // TODO: Implement trend calculation if needed
               ],
             ),
           ),
@@ -55,15 +55,15 @@ class VisitorStatsSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${stats.visitorCount ~/ 2}', // Example calculation, adjust as needed
+                  '${stats.foreignVisitors}', // Use actual foreignVisitors count
                   style: const TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF2C2C2C),
                   ),
                 ),
-                const SizedBox(height: 8),
-                _buildTrendIndicator(-5.2), // Example data
+                // const SizedBox(height: 8),
+                // _buildTrendIndicator(-5.2), // TODO: Implement trend calculation if needed
               ],
             ),
           ),
@@ -75,61 +75,66 @@ class VisitorStatsSection extends StatelessWidget {
   Widget _buildVisitorsByCountry(TouristStats stats) {
      return CardWidget( // Use CardWidget
       title: 'Visitors by Country',
-      // ... (rest of the implementation is the same)
-      child: Column(
-        children: [
-          ...stats.visitorsByCountry.entries.map((entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
+      child: stats.visitorsByCountry.isEmpty
+          ? const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('No country data available.', style: TextStyle(color: Colors.grey)),
+            ) 
+          : Column(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      entry.key,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF2C2C2C),
+                ...stats.visitorsByCountry.entries.map((entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            entry.key,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF2C2C2C),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2C2C2C),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${entry.value}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2C2C2C),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${entry.value}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          // Ensure visitorCount is not zero to avoid division by zero
+                          // Use total visitor count for percentage calculation
+                          value: stats.visitorCount > 0 ? entry.value / stats.visitorCount : 0,
+                          backgroundColor: Colors.grey[200],
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF2C2C2C),
+                          ),
+                          minHeight: 8,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    // Ensure visitorCount is not zero to avoid division by zero
-                    value: stats.visitorCount > 0 ? entry.value / stats.visitorCount : 0,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFF2C2C2C),
-                    ),
-                    minHeight: 8,
+                    ],
                   ),
-                ),
+                )).toList(),
               ],
             ),
-          )).toList(),
-        ],
-      ),
     );
   }
 
@@ -138,11 +143,22 @@ class VisitorStatsSection extends StatelessWidget {
     final ratings = stats.satisfactionRatings.isNotEmpty
         ? stats.satisfactionRatings
         : {
-            'Overall': 4.5,
-            'Accommodation': 4.2,
-            'Transportation': 3.8,
-            'Activities': 4.7,
+            // 'Overall': 4.5, // Keep commented or remove if not used
+            // 'Accommodation': 4.2,
+            // 'Transportation': 3.8,
+            // 'Activities': 4.7,
           };
+
+    // If no ratings, show a message
+    if (ratings.isEmpty) {
+      return CardWidget(
+        title: 'Tourist Satisfaction',
+        child: const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text('No satisfaction data available.', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
 
     return CardWidget( // Use CardWidget
       title: 'Tourist Satisfaction',

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+// import 'package:cloud_firestore/cloud_firestore.dart'; // Remove Firestore import
+import 'package:supabase_flutter/supabase_flutter.dart'; // Add Supabase import
 import '../../shared/services/navigation_service.dart';
 import '../../shared/models/user_model.dart';
 
@@ -23,6 +25,8 @@ class _VisitorTypeSelectionPageState extends State<VisitorTypeSelectionPage> {
   String? _selectedState;
   String? _selectedCountry;
   final TextEditingController _nameController = TextEditingController();
+  // final FirebaseFirestore _firestore = FirebaseFirestore.instance; // Remove Firestore instance
+  final _supabase = Supabase.instance.client; // Add Supabase client instance
   
   final List<String> _malaysianStates = [
     'Johor',
@@ -67,6 +71,98 @@ class _VisitorTypeSelectionPageState extends State<VisitorTypeSelectionPage> {
     'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam', 'Yemen', 'Zambia', 'Zimbabwe'
   ];
 
+  // --- Replace _recordVisitorStats with Supabase logic ---
+  Future<void> _recordVisitorStats(UserModel updatedUser) async {
+    final city = updatedUser.selectedCity;
+    if (city == null || city.isEmpty) {
+      print('Error: City is null or empty, cannot record stats.');
+      return;
+    }
+
+    final visitorType = updatedUser.visitorType;
+    final state = updatedUser.state;
+    final country = updatedUser.country;
+    final name = updatedUser.name; // Get the user's name
+    final userId = _supabase.auth.currentUser?.id; // Get current user ID if logged in
+
+    try {
+      // --- Log individual visit --- 
+      await _supabase.from('visitor_log').insert({
+        'user_id': userId, // Can be null if user is not logged in
+        'name': name ?? 'Anonymous', // Use name or default
+        'city': city,
+        'visitor_type': visitorType,
+        'state': state,
+        'country': country,
+        // 'logged_at' defaults to now() in the database
+      });
+      // --------------------------
+
+      // --- Update aggregated stats (existing logic) --- 
+      // Fetch existing stats for the city
+      final existingData = await _supabase
+          .from('visitor_stats')
+          .select()
+          .eq('city', city)
+          .maybeSingle(); // Use maybeSingle to handle non-existent rows gracefully
+
+      int totalVisitors = 1;
+      int malaysianVisitors = (visitorType == 'Malaysian') ? 1 : 0;
+      int foreignVisitors = (visitorType == 'Foreign') ? 1 : 0;
+      Map<String, dynamic> stateCounts = state != null ? {state: 1} : {};
+      Map<String, dynamic> countryCounts = country != null ? {country: 1} : {};
+
+      if (existingData != null) {
+        // If data exists, increment counts
+        totalVisitors = (existingData['total_visitors'] as int? ?? 0) + 1;
+        malaysianVisitors = (existingData['malaysian_visitors'] as int? ?? 0) + ((visitorType == 'Malaysian') ? 1 : 0);
+        foreignVisitors = (existingData['foreign_visitors'] as int? ?? 0) + ((visitorType == 'Foreign') ? 1 : 0);
+
+        // Increment state count
+        final existingStateCounts = (existingData['state_counts'] as Map<String, dynamic>?) ?? {};
+        if (state != null) {
+          final currentCount = (existingStateCounts[state] as int? ?? 0);
+          existingStateCounts[state] = currentCount + 1;
+        }
+        stateCounts = existingStateCounts; // Use the updated map
+
+        // Increment country count
+        final existingCountryCounts = (existingData['country_counts'] as Map<String, dynamic>?) ?? {};
+         if (country != null) {
+          final currentCount = (existingCountryCounts[country] as int? ?? 0);
+          existingCountryCounts[country] = currentCount + 1;
+        }
+        countryCounts = existingCountryCounts; // Use the updated map
+      }
+
+      // Upsert the data (insert if not exists, update if exists)
+      await _supabase.from('visitor_stats').upsert({
+        'city': city, // Primary key or unique identifier
+        'total_visitors': totalVisitors,
+        'malaysian_visitors': malaysianVisitors,
+        'foreign_visitors': foreignVisitors,
+        'state_counts': stateCounts, // Store as JSONB in Supabase
+        'country_counts': countryCounts, // Store as JSONB in Supabase
+        'last_updated': DateTime.now().toIso8601String(), // Use current timestamp
+      });
+
+      // Note: This client-side fetch-increment-upsert approach is not fully atomic.
+      // For high concurrency, consider using a Supabase Edge Function (RPC)
+      // to perform the increment operation atomically on the server.
+
+    } catch (e) {
+      print('Error recording visitor data to Supabase: $e');
+      // Consider showing an error message to the user
+      // if (mounted) {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     SnackBar(content: Text('Error saving visitor data: ${e.toString()}')),
+      //   );
+      // }
+    }
+  }
+  // --- End of replaced _recordVisitorStats ---
+
+
   Future<void> _handleContinue() async {
     if (_selectedType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,7 +204,11 @@ class _VisitorTypeSelectionPageState extends State<VisitorTypeSelectionPage> {
         state: _selectedType == 'Malaysian' ? _selectedState : null,
         country: _selectedType == 'Foreign' ? _selectedCountry : null,
       );
-      
+
+      // ---- Record stats using Supabase ----
+      await _recordVisitorStats(updatedUser);
+      // ------------------------------------
+
       // Navigate directly to itinerary personalization for all users
       widget.navigationService.navigateToReplacement(
         '/itinerary_personalization',
@@ -117,7 +217,7 @@ class _VisitorTypeSelectionPageState extends State<VisitorTypeSelectionPage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}')),
+          SnackBar(content: Text('Error saving stats or navigating: ${e.toString()}')), // Updated error message
         );
       }
     } finally {
@@ -451,4 +551,4 @@ class _VisitorTypeSelectionPageState extends State<VisitorTypeSelectionPage> {
       ),
     );
   }
-} 
+}

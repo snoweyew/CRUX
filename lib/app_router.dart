@@ -81,8 +81,7 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => STBDashboardPage(
             user: user,
-            mockDataService: mockDataService,
-            submissionService: SupabaseSubmissionService(),
+            submissionService: SupabaseSubmissionService(), // Ensure this is passed
           ),
         );
       case '/local_main': 

@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Add Supabase import
 import '../../shared/models/user_model.dart';
-import '../../shared/services/mock_data_service.dart';
-import '../../shared/services/supabase_submission_service.dart'; // Import the service
+// import '../../shared/services/mock_data_service.dart'; // Remove mock data service import
+import '../../shared/services/supabase_submission_service.dart'; 
 import 'widgets/visitor_stats_section.dart';
 import 'widgets/event_management_section.dart';
 import 'widgets/submission_section.dart';
 
 class TouristStats {
   final String city;
-  final int visitorCount;
-  final Map<String, int> visitorsByCountry;
-  final List<Order> orders;
-  final Map<String, double> satisfactionRatings;
-  final List<Complaint> complaints;
-  final List<Event> events;
-  final List<LocalSubmission> pendingSubmissions;
+  final int visitorCount; // Represents total_visitors from Supabase
+  final int malaysianVisitors; // Add field for malaysian_visitors
+  final int foreignVisitors; // Add field for foreign_visitors
+  final Map<String, int> visitorsByCountry; // Represents country_counts from Supabase
+  final List<Order> orders; // Keep for potential future use or remove if unused
+  final Map<String, double> satisfactionRatings; // Keep for potential future use or remove if unused
+  final List<Complaint> complaints; // Keep for potential future use or remove if unused
+  final List<Event> events; // Keep for potential future use or remove if unused
+  final List<LocalSubmission> pendingSubmissions; // Keep for potential future use or remove if unused
 
   TouristStats({
     required this.city,
     required this.visitorCount,
+    required this.malaysianVisitors, // Add to constructor
+    required this.foreignVisitors, // Add to constructor
     required this.visitorsByCountry,
     required this.orders,
     required this.satisfactionRatings,
@@ -26,8 +31,46 @@ class TouristStats {
     required this.events,
     required this.pendingSubmissions,
   });
+
+  // Factory constructor to create TouristStats from Supabase data
+  factory TouristStats.fromSupabase(String city, Map<String, dynamic> data) {
+    final countryCountsData = data['country_counts'] as Map<String, dynamic>? ?? {};
+    final visitorsByCountry = countryCountsData.map((key, value) => MapEntry(key, (value as num?)?.toInt() ?? 0));
+
+    return TouristStats(
+      city: city,
+      visitorCount: (data['total_visitors'] as num?)?.toInt() ?? 0,
+      malaysianVisitors: (data['malaysian_visitors'] as num?)?.toInt() ?? 0,
+      foreignVisitors: (data['foreign_visitors'] as num?)?.toInt() ?? 0,
+      visitorsByCountry: visitorsByCountry,
+      // Provide default empty lists/maps for unused fields for now
+      orders: [], 
+      satisfactionRatings: {}, 
+      complaints: [], 
+      events: [], 
+      pendingSubmissions: [], 
+    );
+  }
+
+  // Factory constructor for an empty state
+  factory TouristStats.empty(String city) {
+    return TouristStats(
+      city: city,
+      visitorCount: 0,
+      malaysianVisitors: 0,
+      foreignVisitors: 0,
+      visitorsByCountry: {},
+      orders: [],
+      satisfactionRatings: {},
+      complaints: [],
+      events: [],
+      pendingSubmissions: [],
+    );
+  }
 }
 
+// ... existing Order, Complaint, Event, LocalSubmission classes ...
+// (Keep these classes for now, even if not populated from Supabase yet)
 class Order {
   final String touristName;
   final String item;
@@ -100,16 +143,17 @@ class LocalSubmission {
   });
 }
 
+
 class STBDashboardPage extends StatefulWidget {
   final UserModel user;
-  final MockDataService mockDataService;
-  final SupabaseSubmissionService submissionService; // Add submissionService
+  // final MockDataService mockDataService; // Remove mockDataService
+  final SupabaseSubmissionService submissionService; 
 
   const STBDashboardPage({
     Key? key,
     required this.user,
-    required this.mockDataService,
-    required this.submissionService, // Require submissionService
+    // required this.mockDataService, // Remove mockDataService
+    required this.submissionService, 
   }) : super(key: key);
 
   @override
@@ -118,88 +162,88 @@ class STBDashboardPage extends StatefulWidget {
 
 class _STBDashboardPageState extends State<STBDashboardPage> {
   int _selectedIndex = 0;
-  List<String> cities = [];
-  Map<String, TouristStats> cityStats = {};
-  bool isLoading = true;
+  List<String> cities = []; // Keep list of cities
+  // Map<String, TouristStats> cityStats = {}; // Remove mock stats map
+  TouristStats? _currentStats; // State variable for fetched stats
+  bool isLoading = true; // Keep loading state
   String? selectedCity;
-  String selectedTimeFrame = 'Monthly';
-  String selectedVisitorType = 'All';
+  String selectedTimeFrame = 'Monthly'; // Keep filters if needed
+  String selectedVisitorType = 'All'; // Keep filters if needed
   
   final List<String> timeFrames = ['Monthly', 'Quarterly', 'Yearly'];
   final List<String> visitorTypes = ['All', 'Local', 'Foreign'];
 
+  final _supabase = Supabase.instance.client; // Add Supabase client instance
+
   @override
   void initState() {
     super.initState();
-    cities = widget.mockDataService.getSarawakCities();
+    // TODO: Fetch the list of cities dynamically if possible, or keep static list
+    cities = ['Kuching', 'Miri', 'Sibu', 'Bintulu']; // Example static list
     selectedCity = cities.isNotEmpty ? cities[0] : null;
-    _loadMockData();
+    // _loadMockData(); // Remove call to load mock data
+    if (selectedCity != null) {
+      _fetchVisitorStats(selectedCity!); // Fetch initial data
+    } else {
+       setState(() {
+         isLoading = false; // No city selected, stop loading
+       });
+    }
   }
 
-  void _loadMockData() {
-    // Simulate loading data
-    Future.delayed(const Duration(seconds: 1), () {
-      final mockStats = _generateMockStats();
-      if (mounted) { // Add mounted check
+  // Remove _loadMockData method
+  // void _loadMockData() { ... }
+
+  // Remove _generateMockStats method
+  // Map<String, TouristStats> _generateMockStats() { ... }
+
+  // Add method to fetch data from Supabase
+  Future<void> _fetchVisitorStats(String city) async {
+    if (!mounted) return; // Check if widget is still in the tree
+    setState(() {
+      isLoading = true; // Start loading
+      _currentStats = null; // Clear previous stats
+    });
+
+    try {
+      final response = await _supabase
+          .from('visitor_stats')
+          .select()
+          .eq('city', city)
+          .maybeSingle();
+
+      if (!mounted) return; // Check again after await
+
+      if (response != null) {
+        final stats = TouristStats.fromSupabase(city, response as Map<String, dynamic>);
+         setState(() {
+           _currentStats = stats;
+           isLoading = false;
+         });
+      } else {
+        // No data found for the city, create an empty state
         setState(() {
-          cityStats = mockStats;
+          _currentStats = TouristStats.empty(city);
           isLoading = false;
         });
+        print('No visitor stats found for city: $city');
       }
-    });
-  }
-
-  Map<String, TouristStats> _generateMockStats() {
-    final Map<String, TouristStats> stats = {};
-    final countries = ['Malaysia', 'Singapore', 'Indonesia', 'China', 'Japan', 'Australia'];
-    final airports = ['Kuching International Airport', 'Miri Airport', 'Sibu Airport', 'Bintulu Airport'];
-    final items = ['Local Tour Package', 'Hotel Booking', 'Transportation', 'Souvenir Package'];
-
-    for (var city in cities) {
-      final visitorCount = 100 + (DateTime.now().millisecondsSinceEpoch % 900);
-      final visitorsByCountry = Map.fromEntries(
-        countries.map((country) => MapEntry(country, 10 + (DateTime.now().millisecondsSinceEpoch % 90))),
-      );
-
-      final orders = List.generate(5, (index) => Order(
-        touristName: 'Tourist ${index + 1}',
-        item: items[index % items.length],
-        amount: 100.0 + (index * 50),
-        airport: airports[index % airports.length],
-        date: DateTime.now().subtract(Duration(days: index)),
-      ));
-
-      final mockEvents = List.generate(3, (index) => Event(
-        title: 'Event ${city.substring(0,3)} ${index + 1}',
-        description: 'Description for event ${index + 1} in $city',
-        startDate: DateTime.now().add(Duration(days: 30 + index * 5)),
-        endDate: DateTime.now().add(Duration(days: 32 + index * 5)),
-        venue: '$city Convention Center',
-        category: 'Festival',
-        status: index == 0 ? 'Upcoming' : 'Past',
-      ));
-
-      stats[city] = TouristStats(
-        city: city,
-        visitorCount: visitorCount,
-        visitorsByCountry: visitorsByCountry,
-        orders: orders,
-        satisfactionRatings: {
-          'Overall': 4.2 + (city.length % 5) * 0.1,
-          'Accommodation': 4.0 + (city.length % 6) * 0.1,
-        },
-        complaints: [],
-        events: mockEvents,
-        pendingSubmissions: [], // Keep this empty, data comes from Supabase now
-      );
+    } catch (e) {
+       if (!mounted) return; // Check again after await
+       print('Error fetching visitor stats for $city: $e');
+       setState(() {
+         _currentStats = TouristStats.empty(city); // Show empty state on error
+         isLoading = false;
+         // Optionally show an error message to the user
+         // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading stats: ${e.toString()}')));
+       });
     }
-
-    return stats;
   }
   
 
   @override
   Widget build(BuildContext context) {
+    // ... existing AppBar ...
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -214,19 +258,20 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
           ),
         ),
       ),
-      body: isLoading && _selectedIndex != 2 // Only show main loading for non-submission tabs
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column( // Keep the main column structure
               children: [
+                // Keep header and filters for the 'Visitors' tab
                 if (_selectedIndex == 0) ...[
                   _buildHeader(),
-                  _buildFilters(),
+                  _buildFilters(), // Keep filters if they are still relevant
                 ],
                 Expanded(
-                  child: _buildPage(),
+                  // Use a FutureBuilder or handle loading state before building the page
+                  child: _buildPage(), 
                 ),
               ],
             ),
+      // ... existing BottomNavigationBar ...
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         type: BottomNavigationBarType.fixed,
@@ -250,12 +295,15 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
+            // Potentially trigger data fetch if switching to a tab that needs it
+            // and data hasn't been loaded yet. (Handled by _buildPage logic)
           });
         },
       ),
     );
   }
 
+  // ... existing _getTitle ...
   String _getTitle() {
     switch (_selectedIndex) {
       case 0:
@@ -270,27 +318,35 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
   }
 
   Widget _buildPage() {
-    // Handle loading state specifically for sections needing mock data
-    if (isLoading && _selectedIndex != 2) {
+    // Handle loading state first
+    if (isLoading) {
        return const Center(child: CircularProgressIndicator());
     }
     
-    // For Visitors and Events, check city and stats
-    if (_selectedIndex != 2) {
+    // Handle 'Visitors' tab (index 0)
+    if (_selectedIndex == 0) {
       if (selectedCity == null) {
         return const Center(child: Text('Please select a city'));
       }
-      final stats = cityStats[selectedCity!];
-      if (stats == null) return const Center(child: Text('No data available for this city'));
-
-      switch (_selectedIndex) {
-        case 0:
-          return VisitorStatsSection(stats: stats);
-        case 1:
-          return EventManagementSection(stats: stats);
+      // Use the fetched _currentStats
+      if (_currentStats == null) {
+        // This case might happen briefly or if fetching failed silently
+        return const Center(child: Text('Loading stats...')); 
       }
+      // Pass the fetched stats to VisitorStatsSection
+      return VisitorStatsSection(stats: _currentStats!); 
     } 
-    // For Submissions, pass the service
+    // Handle 'Events' tab (index 1) - Needs similar data fetching logic if required
+    else if (_selectedIndex == 1) {
+       // TODO: Implement data fetching for Events if needed, similar to Visitors
+       // For now, might show placeholder or use _currentStats if relevant
+       if (selectedCity == null) return const Center(child: Text('Please select a city'));
+       if (_currentStats == null) return const Center(child: Text('Loading data...'));
+       // Assuming EventManagementSection also uses TouristStats for now
+       // You might need a separate fetch or adapt EventManagementSection
+       return EventManagementSection(stats: _currentStats!); 
+    }
+    // Handle 'Submissions' tab (index 2)
     else if (_selectedIndex == 2) {
        // Pass the submissionService from the widget
        return SubmissionSection(submissionService: widget.submissionService);
@@ -301,6 +357,7 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
   }
 
   Widget _buildHeader() {
+    // ... (Keep existing header with city dropdown) ...
     return Container(
       color: const Color(0xFF2C2C2C),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -332,9 +389,13 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
-                    setState(() {
-                      selectedCity = newValue;
-                    });
+                    if (newValue != null && newValue != selectedCity) {
+                      setState(() {
+                        selectedCity = newValue;
+                        // Fetch data for the newly selected city
+                        _fetchVisitorStats(newValue); 
+                      });
+                    }
                   },
                 ),
               ),
@@ -345,6 +406,8 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
     );
   }
 
+  // ... existing _buildFilters and _buildFilterDropdown ...
+  // (Keep these if the filters are still needed for the fetched data)
   Widget _buildFilters() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -355,9 +418,15 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
               value: selectedTimeFrame,
               items: timeFrames,
               onChanged: (value) {
-                setState(() {
-                  selectedTimeFrame = value!;
-                });
+                if (value != null && value != selectedTimeFrame) { // Check if value changed
+                  setState(() {
+                    selectedTimeFrame = value;
+                    // Re-fetch data for the current city when time frame changes
+                    if (selectedCity != null) {
+                       _fetchVisitorStats(selectedCity!);
+                    }
+                  });
+                }
               },
               icon: Icons.calendar_today,
             ),
@@ -368,9 +437,15 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
               value: selectedVisitorType,
               items: visitorTypes,
               onChanged: (value) {
-                setState(() {
-                  selectedVisitorType = value!;
-                });
+                 if (value != null && value != selectedVisitorType) { // Check if value changed
+                  setState(() {
+                    selectedVisitorType = value;
+                    // Re-fetch data for the current city when visitor type changes
+                     if (selectedCity != null) {
+                       _fetchVisitorStats(selectedCity!);
+                     }
+                  });
+                 }
               },
               icon: Icons.people,
             ),
