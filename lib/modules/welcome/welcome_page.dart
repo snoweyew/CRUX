@@ -230,35 +230,48 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Top row with logo
+                        // Top row with combined flag and user icon
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            // Sarawak flag icon - clickable for staff login
+                            // Combined clickable area for flag and user icon
                             GestureDetector(
-                              onTap: _showStaffLoginOptions,
+                              onTap: _showStaffLoginOptions, // Single tap target
                               child: Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // Adjust padding as needed
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Container(
-                                  width: 40,
-                                  height: 25,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
-                                  child: CustomPaint(
-                                    size: Size(40, 25),
-                                    painter: SarawakFlagPainter(),
-                                  ),
+                                child: Row( // Keep icons side-by-side
+                                  mainAxisSize: MainAxisSize.min, // Fit content
+                                  children: [
+                                    // Sarawak flag icon (no GestureDetector needed here)
+                                    Container(
+                                      width: 40,
+                                      height: 25,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                      child: CustomPaint(
+                                        size: Size(40, 25),
+                                        painter: SarawakFlagPainter(),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12), // Space between icons
+                                    // User Icon (no GestureDetector needed here)
+                                    const Icon(
+                                      Icons.person_outline, // User icon
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                             
-                            // Empty space to maintain layout
-                            const SizedBox(),
+                            // Empty space to maintain layout (or remove if not needed)
+                            const SizedBox(), 
                           ],
                         ),
                         
@@ -597,4 +610,4 @@ class SarawakFlagPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-} 
+}

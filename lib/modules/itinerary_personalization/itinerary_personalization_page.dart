@@ -137,6 +137,9 @@ class _ItineraryPersonalizationPageState extends State<ItineraryPersonalizationP
       if (!mounted) return;
 
       if (response.statusCode == 200) {
+        // --- START ADDED LOGGING ---
+        print('DEBUG: Raw API Response Body:\n${response.body}'); 
+        // --- END ADDED LOGGING ---
         final responseData = jsonDecode(response.body) as Map<String, dynamic>;
         print('DEBUG: Successfully decoded JSON: $responseData');
 
@@ -149,6 +152,9 @@ class _ItineraryPersonalizationPageState extends State<ItineraryPersonalizationP
         print('DEBUG: Added preferences to response: $responseData');
 
         final itinerary = ItineraryModel.fromJson(responseData);
+        // --- START ADDED LOGGING ---
+        print('DEBUG: Parsed Itinerary Object:\n${itinerary.toJson()}'); // Assuming toJson() exists and is helpful
+        // --- END ADDED LOGGING ---
         print('DEBUG: Successfully created ItineraryModel');
         // --- End of API Call Logic ---
 

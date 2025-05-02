@@ -226,6 +226,42 @@ class ItineraryModel {
                 location = 'Local Coffee Shop';
                 address = 'Miri City Center, 98000 Miri, Sarawak';
               }
+            } else if (locationName == 'SIBU') { // --- ADDED SIBU FALLBACK ---
+              // Sibu Fallback Examples
+              if (mealType == 'Breakfast') {
+                location = 'Sibu Central Market Food Court';
+                address = 'Level 1, Sibu Central Market, Jalan Channel, 96000 Sibu, Sarawak';
+              } else if (mealType == 'Lunch') {
+                location = 'Payung Cafe';
+                address = 'Lorong 2, Jalan Kampung Datu, 96000 Sibu, Sarawak';
+              } else if (mealType == 'Tea Time') {
+                location = 'Tiong Hua Road Kompia';
+                address = 'Jalan Tiong Hua, 96000 Sibu, Sarawak';
+              } else if (mealType == 'Dinner') {
+                location = 'Hai Bing Seafood';
+                address = 'Lot 1179, Jalan Kampung Nyabor, 96000 Sibu, Sarawak';
+              } else {
+                location = 'Local Coffee Shop';
+                address = 'Sibu Town Center, 96000 Sibu, Sarawak';
+              }
+            } else if (locationName == 'BINTULU') { // --- ADDED BINTULU FALLBACK ---
+               // Bintulu Fallback Examples
+              if (mealType == 'Breakfast') {
+                location = 'Pasar Tamu Bintulu';
+                address = 'Jalan Main Bazaar, 97000 Bintulu, Sarawak';
+              } else if (mealType == 'Lunch') {
+                location = 'Selera Pantai Restaurant';
+                address = 'Tanjung Batu Beach, 97000 Bintulu, Sarawak';
+              } else if (mealType == 'Tea Time') {
+                location = 'Local Bakery';
+                address = 'Parkcity Commerce Square, 97000 Bintulu, Sarawak';
+              } else if (mealType == 'Dinner') {
+                location = 'Mid Valley Seafood';
+                address = 'Lot 3702, Jalan Tun Ahmad Zaidi, Parkcity Commerce Square, 97000 Bintulu, Sarawak';
+              } else {
+                location = 'Local Coffee Shop';
+                address = 'Bintulu Town Center, 97000 Bintulu, Sarawak';
+              }
             } else { 
               // Default to Kuching Fallback Examples (or add more cities)
               if (mealType == 'Breakfast') {
@@ -247,6 +283,10 @@ class ItineraryModel {
             }
             // --- END CITY-SPECIFIC FALLBACK --- 
             
+            // --- ADDED LOGGING ---
+            print('DEBUG FALLBACK: Using fallback food for Day $dayNumber, Slot $timeSlot, City: $locationName, Address: $address');
+            // --- END LOGGING ---
+
             foodActivity = Activity(
               type: 'food',
               name: '$mealType at $location',
@@ -284,6 +324,36 @@ class ItineraryModel {
                 attractionAddress = 'Jalan Kipas, 98000 Miri, Sarawak';
                 attractionDescription = 'Relax in this unique fan-shaped park featuring gardens, library, and amphitheater.';
               }
+            } else if (locationName == 'SIBU') { // --- ADDED SIBU FALLBACK ---
+              // Sibu Fallback Examples
+              if (i == 0) {
+                attractionName = 'Sibu Heritage Centre';
+                attractionAddress = 'Jalan Central, 96000 Sibu, Sarawak';
+                attractionDescription = 'Learn about the history and culture of Sibu and the Rejang River basin.';
+              } else if (i == 1) {
+                attractionName = 'Tua Pek Kong Temple';
+                attractionAddress = 'Jalan Temple, 96000 Sibu, Sarawak';
+                attractionDescription = 'Visit the iconic seven-story pagoda temple by the Rejang River.';
+              } else {
+                attractionName = 'Bukit Lima Forest Park';
+                attractionAddress = 'Off Jalan Tun Abang Haji Openg, 96000 Sibu, Sarawak';
+                attractionDescription = 'Enjoy nature trails and boardwalks through the peat swamp forest reserve.';
+              }
+            } else if (locationName == 'BINTULU') { // --- ADDED BINTULU FALLBACK ---
+              // Bintulu Fallback Examples
+              if (i == 0) {
+                attractionName = 'Similajau National Park';
+                attractionAddress = 'KM 30, Jalan Bintulu-Miri, 97000 Bintulu, Sarawak';
+                attractionDescription = 'Explore coastal trails, beaches, and diverse wildlife.';
+              } else if (i == 1) {
+                attractionName = 'Taman Tumbina Bintulu';
+                attractionAddress = 'Jalan Tanjung Batu, 97000 Bintulu, Sarawak';
+                attractionDescription = 'A zoological and botanical park showcasing local flora and fauna.';
+              } else {
+                attractionName = 'Council Negeri Memorial';
+                attractionAddress = 'Jalan Tun Razak, 97000 Bintulu, Sarawak';
+                attractionDescription = 'Visit the historical site where the first Sarawak State Legislative Assembly meeting was held.';
+              }
             } else {
               // Default to Kuching Fallback Examples
               if (i == 0) {
@@ -301,6 +371,10 @@ class ItineraryModel {
               }
             }
             // --- END CITY-SPECIFIC FALLBACK --- 
+
+            // --- ADDED LOGGING ---
+            print('DEBUG FALLBACK: Using fallback attraction for Day $dayNumber, City: $locationName, Address: $attractionAddress');
+            // --- END LOGGING ---
 
             attractionActivity = Activity(
               type: 'attraction',
@@ -335,6 +409,28 @@ class ItineraryModel {
                 experienceAddress = 'Miri Handicraft Centre area, Jalan Brooke, 98000 Miri, Sarawak';
                 experienceDescription = 'Explore local food, crafts, and goods at the vibrant night market.';
               }
+            } else if (locationName == 'SIBU') { // --- ADDED SIBU FALLBACK ---
+              // Sibu Fallback Examples
+              if (i == 0) {
+                experienceName = 'Rejang River Cruise';
+                experienceAddress = 'Sibu Wharf, Jalan Channel, 96000 Sibu, Sarawak';
+                experienceDescription = 'Take a boat trip along Malaysia\'s longest river, observing life along the banks.';
+              } else {
+                experienceName = 'Sibu Night Market Exploration';
+                experienceAddress = 'Jalan Market, 96000 Sibu, Sarawak';
+                experienceDescription = 'Experience the bustling atmosphere and try various local street foods and snacks.';
+              }
+            } else if (locationName == 'BINTULU') { // --- ADDED BINTULU FALLBACK ---
+              // Bintulu Fallback Examples
+              if (i == 0) {
+                experienceName = 'Sunset Viewing at Tanjung Batu Beach';
+                experienceAddress = 'Tanjung Batu Beach, 97000 Bintulu, Sarawak';
+                experienceDescription = 'Enjoy the scenic sunset view over the South China Sea.';
+              } else {
+                experienceName = 'Local Market Visit (Pasar Tamu/Utama)';
+                experienceAddress = 'Jalan Main Bazaar / Jalan Sommerville, 97000 Bintulu, Sarawak';
+                experienceDescription = 'Explore the local markets to see fresh produce, local goods, and interact with vendors.';
+              }
             } else {
               // Default to Kuching Fallback Examples
               if (i == 0) {
@@ -348,6 +444,10 @@ class ItineraryModel {
               }
             }
             // --- END CITY-SPECIFIC FALLBACK --- 
+
+            // --- ADDED LOGGING ---
+            print('DEBUG FALLBACK: Using fallback experience for Day $dayNumber, City: $locationName, Address: $experienceAddress');
+            // --- END LOGGING ---
 
             experienceActivity = Activity(
               type: 'experience',
@@ -469,6 +569,32 @@ class DayPlan {
     required this.dayNumber,
     required this.schedule,
   });
+
+  // --- MODIFIED: Added cityName parameter ---
+  factory DayPlan.fromJson(Map<String, dynamic> json, String cityName) { 
+    Map<String, List<Activity>> schedule = {};
+    (json['schedule'] as Map<String, dynamic>).forEach((timeSlot, activitiesJson) {
+      List<Activity> activitiesForSlot = []; // List for all activities in this slot
+      (activitiesJson as Map<String, dynamic>).forEach((type, activityListJson) {
+        activitiesForSlot.addAll((activityListJson as List)
+            .map((activityJson) {
+              // --- MODIFIED: Pass cityName to Activity.fromJson ---
+              final activity = Activity.fromJson(activityJson as Map<String, dynamic>, cityName); 
+              // --- START ADDED LOGGING ---
+              print('DEBUG PARSING: Day ${json['day_number']}, Slot $timeSlot, Type ${activity.type}, Address: ${activity.address}');
+              // --- END ADDED LOGGING ---
+              return activity;
+            })
+            .toList());
+      });
+      schedule[timeSlot] = activitiesForSlot; // Assign the flat list to the time slot
+    });
+
+    return DayPlan(
+      dayNumber: json['day_number'] as int,
+      schedule: schedule, // This now matches the expected type Map<String, List<Activity>>
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return {
