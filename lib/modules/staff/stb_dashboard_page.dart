@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../shared/models/user_model.dart';
 import '../../shared/services/mock_data_service.dart';
+import 'widgets/visitor_stats_section.dart';
+import 'widgets/event_management_section.dart';
+import 'widgets/submission_section.dart';
 
 class TouristStats {
   final String city;
@@ -161,15 +164,37 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
         date: DateTime.now().subtract(Duration(days: index)),
       ));
 
+      final mockEvents = List.generate(3, (index) => Event(
+        title: 'Event ${city.substring(0,3)} ${index + 1}',
+        description: 'Description for event ${index + 1} in $city',
+        startDate: DateTime.now().add(Duration(days: 30 + index * 5)),
+        endDate: DateTime.now().add(Duration(days: 32 + index * 5)),
+        venue: '$city Convention Center',
+        category: 'Festival',
+        status: index == 0 ? 'Upcoming' : 'Past',
+      ));
+
+      final mockSubmissions = List.generate(2, (index) => LocalSubmission(
+        id: 'sub_${city.substring(0,3)}_$index',
+        title: 'Submission ${index + 1} for $city',
+        description: 'Details for submission ${index + 1}',
+        submitterName: 'Local Biz ${index + 1}',
+        date: DateTime.now().subtract(Duration(days: index * 2)),
+        status: 'Pending Review',
+      ));
+
       stats[city] = TouristStats(
         city: city,
         visitorCount: visitorCount,
         visitorsByCountry: visitorsByCountry,
         orders: orders,
-        satisfactionRatings: {},
+        satisfactionRatings: {
+          'Overall': 4.2 + (city.length % 5) * 0.1,
+          'Accommodation': 4.0 + (city.length % 6) * 0.1,
+        },
         complaints: [],
-        events: [],
-        pendingSubmissions: [],
+        events: mockEvents,
+        pendingSubmissions: mockSubmissions,
       );
     }
 
@@ -258,111 +283,14 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
 
     switch (_selectedIndex) {
       case 0:
-        return _buildVisitorsPage(stats);
+        return VisitorStatsSection(stats: stats);
       case 1:
-        return _buildEventsPage(stats);
+        return EventManagementSection(stats: stats);
       case 2:
-        return _buildSubmissionsPage(stats);
+        return SubmissionSection(stats: stats);
       default:
         return const Center(child: Text('Page not found'));
     }
-  }
-
-  Widget _buildVisitorsPage(TouristStats stats) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildVisitorStats(stats),
-          const SizedBox(height: 16),
-          _buildVisitorsByCountry(stats),
-          const SizedBox(height: 16),
-          _buildSatisfactionRatings(stats),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVisitorsByCountry(TouristStats stats) {
-    return _buildCard(
-      title: 'Visitors by Country',
-      child: Column(
-        children: [
-          ...stats.visitorsByCountry.entries.map((entry) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      entry.key,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF2C2C2C),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2C2C2C),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '${entry.value}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: entry.value / stats.visitorCount,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFF2C2C2C),
-                    ),
-                    minHeight: 8,
-                  ),
-                ),
-              ],
-            ),
-          )).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEventsPage(TouristStats stats) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildEventManagement(stats),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSubmissionsPage(TouristStats stats) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildLocalSubmissions(stats),
-        ],
-      ),
-    );
   }
 
   Widget _buildHeader() {
@@ -485,407 +413,4 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
       ),
     );
   }
-
-  Widget _buildVisitorStats(TouristStats stats) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildCard(
-            title: 'Local Visitors',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${stats.visitorCount ~/ 2}',
-                  style: const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildTrendIndicator(10.5),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildCard(
-            title: 'Foreign Visitors',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${stats.visitorCount ~/ 2}',
-                  style: const TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildTrendIndicator(-5.2),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTrendIndicator(double percentage) {
-    final isPositive = percentage >= 0;
-    return Row(
-      children: [
-        Icon(
-          isPositive ? Icons.trending_up : Icons.trending_down,
-          color: isPositive ? Colors.green : Colors.red,
-          size: 16,
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '${percentage.abs()}%',
-          style: TextStyle(
-            color: isPositive ? Colors.green : Colors.red,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSatisfactionRatings(TouristStats stats) {
-    return _buildCard(
-      title: 'Tourist Satisfaction',
-      child: Column(
-        children: [
-          _buildRatingBar('Overall', 4.5),
-          const SizedBox(height: 12),
-          _buildRatingBar('Accommodation', 4.2),
-          const SizedBox(height: 12),
-          _buildRatingBar('Transportation', 3.8),
-          const SizedBox(height: 12),
-          _buildRatingBar('Activities', 4.7),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRatingBar(String label, double rating) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFF2C2C2C),
-            ),
-          ),
-        ),
-        Expanded(
-          flex: 3,
-          child: Row(
-            children: List.generate(5, (index) {
-              return Icon(
-                index < rating ? Icons.star : Icons.star_border,
-                color: index < rating ? const Color(0xFF2C2C2C) : Colors.grey,
-                size: 16,
-              );
-            }),
-          ),
-        ),
-        Text(
-          rating.toStringAsFixed(1),
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2C2C2C),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEventManagement(TouristStats stats) {
-    return _buildCard(
-      title: 'Event Management',
-      child: Column(
-        children: [
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 3,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildEventItem(
-                  'Rainforest Music Festival',
-                  'July 12-14, 2024',
-                  'Sarawak Cultural Village',
-                  index == 0 ? 'Upcoming' : 'Past',
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () {
-                    // TODO: Navigate to event list
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF2C2C2C),
-                    side: const BorderSide(color: Color(0xFF2C2C2C)),
-                  ),
-                  child: const Text('View All'),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Navigate to add event page
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2C2C2C),
-                  ),
-                  child: const Text('Add Event'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEventItem(String title, String date, String venue, String status) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 4,
-            height: 40,
-            decoration: BoxDecoration(
-              color: status == 'Upcoming' ? Colors.green : Colors.grey,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$date • $venue',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: status == 'Upcoming'
-                  ? Colors.green.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 12,
-                color: status == 'Upcoming' ? Colors.green : Colors.grey,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLocalSubmissions(TouristStats stats) {
-    return _buildCard(
-      title: 'Local Submissions',
-      child: Column(
-        children: [
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: 3,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildSubmissionItem(
-                  'New Tourist Spot Registration',
-                  'John Doe',
-                  'Pending Review',
-                  DateTime.now().subtract(Duration(days: index)),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Navigate to submissions page
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2C2C2C),
-              minimumSize: const Size(double.infinity, 40),
-            ),
-            child: const Text('View All Submissions'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSubmissionItem(
-    String title,
-    String submitter,
-    String status,
-    DateTime date,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C2C2C),
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2C2C2C).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF2C2C2C),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.person,
-                size: 16,
-                color: Colors.grey,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                submitter,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Icon(
-                Icons.calendar_today,
-                size: 16,
-                color: Colors.grey,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                date.toString().split(' ')[0],
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCard({required String title, required Widget child}) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: Color(0xFFEEEEEE),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2C2C2C),
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
-} 
+}

@@ -138,6 +138,28 @@ class SupabaseSubmissionService {
     }
   }
 
+  // Save or update user profile details (name, location)
+  Future<void> saveUserProfile(String name, String location) async {
+    final currentUser = _supabase.auth.currentUser;
+    if (currentUser == null) {
+      throw Exception('Not authenticated with Supabase');
+    }
+
+    try {
+      // Assuming a 'profiles' table linked to auth.users via 'id'
+      await _supabase.from('profiles').upsert({
+        'id': currentUser.id, // Primary key, same as auth user ID
+        'name': name,
+        'location': location, // Origin city/country/state
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      print('User profile saved/updated in Supabase for user: ${currentUser.id}');
+    } catch (e) {
+      print('Error saving user profile to Supabase: $e');
+      rethrow;
+    }
+  }
+
   // Upload photo to Supabase Storage
   Future<String> uploadPhoto(String filePath) async {
     final currentUser = _supabase.auth.currentUser;
