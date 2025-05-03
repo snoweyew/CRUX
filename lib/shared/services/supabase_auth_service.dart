@@ -16,44 +16,51 @@ class SupabaseAuthService {
     required String externalId,
   }) async {
     try {
-      // Check if already signed in
       if (isAuthenticated) {
         print('Already authenticated with Supabase');
         return;
       }
 
-      // Generate a secure password using external ID
       final securePassword = _generateSecurePassword(externalId);
       
-      try {
-        // Try to sign in first
-        final response = await _supabase.auth.signInWithPassword(
-          email: email,
-          password: securePassword,
-        );
-        
-        if (response.user == null) {
-          throw Exception('Failed to sign in to Supabase');
-        }
-        
-        print('Successfully signed in to Supabase: ${response.user?.email}');
-      } catch (e) {
-        print('Sign in failed, attempting to create new user: $e');
-        
-        // If sign in fails, create a new user
-        final response = await _supabase.auth.signUp(
-          email: email,
-          password: securePassword,
-        );
-        
-        if (response.user == null) {
-          throw Exception('Failed to create Supabase user');
-        }
-        
-        print('Successfully created Supabase user: ${response.user?.email}');
+      // First try to sign in
+      final signInResponse = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: securePassword,
+      ).catchError((e) {
+        print('Sign in error details: ${e.toString()}');
+        return null;
+      });
+
+      if (signInResponse?.user != null) {
+        print('Successfully signed in to Supabase: ${signInResponse!.user!.email}');
+        return;
       }
+
+      // If sign in fails, try to sign up
+      print('Attempting to create new user...');
+      final signUpResponse = await _supabase.auth.signUp(
+        email: email,
+        password: securePassword,
+      ).catchError((e) {
+        print('Sign up error details: ${e.toString()}');
+        return null;
+      });
+
+      if (signUpResponse?.user == null) {
+        throw Exception('''
+Failed to authenticate with Supabase. 
+Possible causes:
+1. Invalid email format
+2. Password too weak
+3. Network connectivity issues
+4. Supabase service unavailable
+''');
+      }
+
+      print('Successfully created Supabase user: ${signUpResponse!.user!.email}');
     } catch (e) {
-      print('Error in Supabase auth: $e');
+      print('Detailed auth error: ${e.toString()}');
       rethrow;
     }
   }

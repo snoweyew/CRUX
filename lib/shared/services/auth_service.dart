@@ -15,11 +15,12 @@ extension UserExtension on User {
 class AuthException implements Exception {
   final String code;
   final String message;
+  final String? friendlyMessage;
 
-  AuthException(this.code, this.message);
+  AuthException(this.code, this.message, {this.friendlyMessage});
 
   @override
-  String toString() => 'AuthException: $code - $message';
+  String toString() => friendlyMessage ?? 'AuthException: $code - $message';
 }
 
 class AuthService {
@@ -128,11 +129,34 @@ class AuthService {
           
       if (response != null) {
         final user = _supabase.auth.currentUser;
+        
+        // Get role with fallback mechanisms
+        String userRole = response['role'];
+        
+        // If role is null or empty, try alternative approaches
+        if (userRole == null || userRole.isEmpty) {
+          // Try to determine role from email domain
+          userRole = _getUserRole(user?.email);
+          
+          // Update the profile with the determined role
+          try {
+            await _supabase.from('profiles').update({
+              'role': userRole,
+              'updated_at': DateTime.now().toIso8601String(),
+            }).eq('id', uid);
+            print('Updated missing role in profile to: $userRole');
+          } catch (updateError) {
+            print('Failed to update role in profile: $updateError');
+          }
+        }
+        
+        print('Retrieved user role: $userRole');
+        
         return UserModel.fromJson({
           'id': uid,
-          'name': response['name'] ?? 'User',
+          'name': response['name'] ?? user?.userMetadata?['name'] ?? 'User',
           'email': user?.email,
-          'role': response['role'] ?? 'tourist',
+          'role': userRole,
           'selectedCity': response['location'] ?? '',
           'isEmailVerified': user?.hasVerifiedEmail() ?? false,
           'visitorType': response['visitor_type'],
@@ -141,19 +165,26 @@ class AuthService {
       return null; // User profile doesn't exist
     } catch (e) {
       print('Error fetching user data: $e');
-      return null; // Return null on error
-    }
-  }
-
-  // Sign in to Supabase
-  Future<void> _signInToSupabase(String email, String role) async {
-    try {
-      await _supabaseAuth.signInWithExternalAuth(
-        email: email,
-        externalId: _supabase.auth.currentUser?.id ?? DateTime.now().toString(),
-      );
-    } catch (e) {
-      print('Error signing in to Supabase: $e');
+      
+      // Fallback: Try to create a basic user model from auth user
+      try {
+        final user = _supabase.auth.currentUser;
+        if (user != null && user.id == uid) {
+          final role = _getUserRole(user.email);
+          return UserModel(
+            id: uid,
+            name: user.userMetadata?['name'] ?? 'User',
+            email: user.email,
+            role: role,
+            selectedCity: '',
+            isEmailVerified: user.hasVerifiedEmail() ?? false,
+          );
+        }
+      } catch (fallbackError) {
+        print('Fallback user creation also failed: $fallbackError');
+      }
+      
+      return null;
     }
   }
 
@@ -168,12 +199,28 @@ class AuthService {
       if (response.user != null) {
         // Get user data from profiles
         final userData = await getUserData(response.user!.id);
+        
+        // Debug: Print user data to understand what's happening
+        print('User login data: ${userData?.toJson()}');
+        
         return userData;
       }
       return null;
     } catch (e) {
-      print('Error signing in: $e');
-      rethrow;
+      // Provide user-friendly error messages
+      if (e.toString().contains('Invalid login credentials')) {
+        throw AuthException('auth/invalid-credentials', 
+          'Invalid email or password', 
+          friendlyMessage: 'The email or password you entered is incorrect.');
+      } else if (e.toString().contains('Email not confirmed')) {
+        throw AuthException('auth/email-not-verified', 
+          'Email not verified', 
+          friendlyMessage: 'Please verify your email address before logging in.');
+      } else {
+        throw AuthException('auth/unknown', 
+          'Login error: ${e.toString()}', 
+          friendlyMessage: 'An error occurred during login. Please try again.');
+      }
     }
   }
 
@@ -185,29 +232,59 @@ class AuthService {
     String name,
   ) async {
     try {
+      // Check if role is valid
+      if (!['tourist', 'local_guide', 'stb_staff'].contains(role)) {
+        throw AuthException('auth/invalid-role', 
+          'Invalid role: $role', 
+          friendlyMessage: 'The selected role is not valid.');
+      }
+
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
         data: {'name': name},
       );
-      
+
       if (response.user == null) {
-        throw AuthException('auth/unknown', 'An unknown error occurred');
+        throw AuthException('auth/unknown', 'Registration failed');
       }
-      
+
       final userId = response.user!.id;
-      
-      // Create user profile in Supabase
-      await _supabase.from('profiles').insert({
-        'id': userId,
-        'name': name,
-        'email': email,
-        'role': role,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-      
+      final now = DateTime.now().toIso8601String();
+
+      try {
+        // Create user profile with defensive coding to avoid duplicate key errors
+        await _supabase.rpc(
+          'handle_new_user_registration',
+          params: {
+            'user_id': userId,
+            'user_name': name,
+            'user_email': email, 
+            'user_role': role,
+            'created_at_time': now,
+          },
+        );
+      } catch (dbError) {
+        print('Using fallback profile creation method due to error: $dbError');
+        
+        // Try direct insert as fallback
+        try {
+          await _supabase.from('profiles').insert({
+            'id': userId,
+            'name': name,
+            'email': email,
+            'role': role,
+            'created_at': now,
+            'updated_at': now,
+          });
+        } catch (directInsertError) {
+          print('Direct insert also failed: $directInsertError');
+          // Continue anyway since the auth user is created
+        }
+      }
+
       // Create user model
-      final user = UserModel(
+      return UserModel(
         id: userId,
         name: name,
         email: email,
@@ -215,12 +292,23 @@ class AuthService {
         selectedCity: '',
         isEmailVerified: response.user!.hasVerifiedEmail() ?? false,
       );
-      
-      return user;
-    } on AuthException catch (e) {
-      rethrow;
     } catch (e) {
-      throw AuthException('auth/unknown', e.toString());
+      // Handle specific auth errors with user-friendly messages
+      if (e.toString().contains('already exists')) {
+        throw AuthException('auth/email-already-in-use', 
+          'The email address is already in use', 
+          friendlyMessage: 'This email is already registered. Please use a different email or login instead.');
+      } else if (e.toString().contains('password') && e.toString().contains('weak')) {
+        throw AuthException('auth/weak-password', 
+          'The password is too weak', 
+          friendlyMessage: 'Your password is too weak. Please use at least 6 characters with a mix of letters and numbers.');
+      } else if (e is AuthException) {
+        rethrow;
+      } else {
+        throw AuthException('auth/unknown', 
+          'Registration error: ${e.toString()}', 
+          friendlyMessage: 'Registration failed. Please try again later.');
+      }
     }
   }
   
@@ -231,7 +319,9 @@ class AuthService {
       print('Successfully signed out from Supabase');
     } catch (e) {
       print('Error signing out: $e');
-      rethrow;
+      throw AuthException('auth/sign-out-error', 
+        'Error signing out: ${e.toString()}', 
+        friendlyMessage: 'There was a problem signing out. Please try again.');
     }
   }
   

@@ -27,8 +27,8 @@ class CartView extends StatelessWidget {
     const categoryKey = 'shopping'; // Use 'shopping' for the service call
 
     return FutureBuilder<List<Map<String, String>>>(
-      // Using mock data for now, adjust as needed for real API
-      future: Future.value(recommendationService.getMockRecommendations(categoryKey, city: selectedCity)),
+      // Fetch data from the 'products' table via the service
+      future: recommendationService.fetchRecommendations(categoryKey, city: selectedCity),
       // future: AppConfig.enableMockData
       //     ? Future.value(recommendationService.getMockRecommendations(categoryKey, city: selectedCity))
       //     : recommendationService.fetchRecommendations(categoryKey, city: selectedCity), // Hypothetical API

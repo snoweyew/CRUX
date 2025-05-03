@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'dart:ui'; // Import for ImageFilter
 import '../../shared/services/auth_service.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/mock_data_service.dart';
@@ -34,6 +35,21 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
   
   // Login dialog visibility
   bool _showLoginOptions = false;
+
+  // List of lighter colors for gradients (Yellow, Red, Orange only)
+  final List<Color> _gradientColors = [
+    Colors.yellowAccent[100]!,
+    Colors.redAccent[100]!,
+    Colors.orangeAccent[100]!,
+    // Colors.limeAccent[100]!, // Removed
+    // Colors.pinkAccent[100]!, // Removed
+    // Colors.purpleAccent[100]!, // Removed
+    // Colors.greenAccent[100]!, // Removed
+    // Colors.tealAccent[100]!, // Removed
+  ];
+
+  // Random number generator
+  final Random _random = Random();
   
   @override
   void initState() {
@@ -277,49 +293,32 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
                         
                         const Spacer(flex: 3),
                         
-                        // Title text - Explore.
-                        const Text(
-                          'Explore.',
-                          style: TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            height: 1.1,
-                          ),
-                        ),
+                        // Title text - Explore. with Gradient
+                        _buildGradientTitle('Explore.'),
                         
-                        // Title text - Travel.
-                        const Text(
-                          'Travel.',
-                          style: TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            height: 1.1,
-                          ),
-                        ),
+                        // Title text - Travel. with Gradient
+                        _buildGradientTitle('Travel.'),
                         
-                        // Title text - Inspire.
-                        const Text(
-                          'Inspire.',
-                          style: TextStyle(
-                            fontSize: 42,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            height: 1.1,
-                          ),
-                        ),
+                        // Title text - Inspire. with Gradient
+                        _buildGradientTitle('Inspire.'),
                         
                         const SizedBox(height: 16),
                         
-                        // Subtitle
+                        // Subtitle - Updated Style
                         const Text(
                           'Life is all about journey.\nFind yours.',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white70,
+                            fontSize: 18, // Slightly larger
+                            fontWeight: FontWeight.w600, // Bolder
+                            color: Colors.white, // Brighter color
                             height: 1.4,
+                            shadows: [ // Add subtle shadow for better readability
+                              Shadow(
+                                blurRadius: 4.0,
+                                color: Colors.black54,
+                                offset: Offset(1.0, 1.0),
+                              ),
+                            ],
                           ),
                         ),
                         
@@ -368,14 +367,64 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
             ),
           ),
           
-          // Staff login options overlay
-          if (_showLoginOptions)
-            _buildStaffLoginOptionsOverlay(),
+          // Staff login options overlay - Modified for Glassmorphism
+          AnimatedOpacity(
+            opacity: _showLoginOptions ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: Visibility(
+              visible: _showLoginOptions,
+              // Use the new glassmorphism overlay builder
+              child: _buildGlassmorphismLoginOverlay(),
+            ),
+          ),
         ],
       ),
     );
   }
   
+  // Helper widget to create gradient text for titles with random lighter colors
+  Widget _buildGradientTitle(String text) {
+    // Select 2 to 4 random colors from the list for the gradient
+    final int colorCount = _random.nextInt(3) + 2; // Randomly 2, 3, or 4 colors
+    final List<Color> currentGradientColors = List.generate(
+      colorCount,
+      (_) => _gradientColors[_random.nextInt(_gradientColors.length)],
+    );
+
+    // Ensure at least two unique colors if possible, otherwise duplicate the first
+    if (currentGradientColors.length > 1 && currentGradientColors.toSet().length == 1) {
+       currentGradientColors[1] = _gradientColors[(_random.nextInt(_gradientColors.length-1) + 1) % _gradientColors.length]; // Pick a different color
+    } else if (currentGradientColors.length == 1) {
+       currentGradientColors.add(currentGradientColors[0]); // Duplicate if only one was somehow generated
+    }
+
+
+    return ShaderMask(
+      shaderCallback: (bounds) => LinearGradient(
+        colors: currentGradientColors, // Use the randomly selected lighter colors
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        tileMode: TileMode.mirror, 
+      ).createShader(bounds),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 48, 
+          fontWeight: FontWeight.bold,
+          color: Colors.white, // Base color is white, gradient overlays it
+          height: 1.1,
+          shadows: [ 
+            Shadow(
+              blurRadius: 6.0,
+              color: Colors.black87,
+              offset: Offset(2.0, 2.0),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Build the upward pointing arrow
   Widget _buildUpwardArrow() {
     return Column(
@@ -395,146 +444,119 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
     );
   }
   
-  // Build staff login options overlay
-  Widget _buildStaffLoginOptionsOverlay() {
+  // Build staff login options overlay with Glassmorphism
+  Widget _buildGlassmorphismLoginOverlay() {
     return GestureDetector(
+      // Tap outside the content area to close
       onTap: () {
         setState(() {
           _showLoginOptions = false;
         });
       },
-      child: Container(
-        color: Colors.black.withOpacity(0.7),
-        child: Center(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Staff Login',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Select your login type',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // STB Staff option
-                _buildLoginOptionButton(
-                  icon: Icons.business,
-                  title: 'STB Staff',
-                  subtitle: 'Login as Sarawak Tourism Board staff',
-                  onTap: _handleSTBLogin,
-                ),
-                
-                const SizedBox(height: 16),
-                
-                // Local Guide option
-                _buildLoginOptionButton(
-                  icon: Icons.tour,
-                  title: 'Sarawakian',
-                  subtitle: 'Login as a local tour guide',
-                  onTap: _handleLocalLogin,
-                ),
-                
-                const SizedBox(height: 24),
-                
-                // Cancel button
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _showLoginOptions = false;
-                    });
-                  },
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+        child: Container(
+          // Semi-transparent background over the blur
+          color: Colors.black.withOpacity(0.3),
+          child: Center(
+            child: GestureDetector(
+              // Prevent closing when tapping inside the glass card
+              onTap: () {},
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20.0),
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.8, // 80% of screen width
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2), // Glass effect color
+                    borderRadius: BorderRadius.circular(20.0),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.3),
+                      width: 1.5,
                     ),
                   ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Select Role',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          // STB Staff Avatar Option
+                          _buildRoleAvatar(
+                            icon: Icons.corporate_fare, // Example icon for STB
+                            label: 'STB Staff',
+                            onTap: _handleSTBLogin,
+                          ),
+                          // Local Guide Avatar Option
+                          _buildRoleAvatar(
+                            icon: Icons.hiking, // Example icon for Local
+                            label: 'Local',
+                            onTap: _handleLocalLogin,
+                          ),
+                        ],
+                      ),
+                      // Optional: Add a close button explicitly if needed
+                      // const SizedBox(height: 24),
+                      // TextButton(
+                      //   onPressed: () => setState(() => _showLoginOptions = false),
+                      //   child: Text('Cancel', style: TextStyle(color: Colors.white70)),
+                      // ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
-  
-  // Build login option button
-  Widget _buildLoginOptionButton({
+
+  // Helper widget for role avatars with Card effect
+  Widget _buildRoleAvatar({
     required IconData icon,
-    required String title,
-    required String subtitle,
+    required String label,
     required VoidCallback onTap,
   }) {
-    return Material(
-      color: Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.grey.shade700,
-              ),
-            ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16), // Add padding
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.25), // Slightly more opaque background for card
+          borderRadius: BorderRadius.circular(16), // Rounded corners for card
+          border: Border.all( // Optional: subtle border
+            color: Colors.white.withOpacity(0.4),
+            width: 1,
           ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 35, // Slightly smaller radius if needed inside the card
+              backgroundColor: Colors.white.withOpacity(0.4), // Adjust background
+              child: Icon(icon, size: 35, color: Colors.white), // Adjust size
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 15, // Adjust font size if needed
+              ),
+            ),
+          ],
         ),
       ),
     );

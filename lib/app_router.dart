@@ -12,26 +12,21 @@ import 'modules/local/local_main_page.dart';
 import 'shared/services/auth_service.dart';
 import 'shared/services/navigation_service.dart';
 import 'shared/services/mock_data_service.dart';
-import 'shared/services/azure_auth_service.dart';
 import 'shared/services/recommendation_service.dart';
 import 'shared/config/app_config.dart';
 import 'shared/models/user_model.dart';
 import 'shared/services/http_service.dart';
-import 'package:mysql_client/mysql_client.dart';
-import 'package:http/http.dart' as http;
 import 'shared/services/supabase_submission_service.dart';
 
 class AppRouter {
   final AuthService authService;
   final NavigationService navigationService;
   final MockDataService mockDataService;
-  final AzureAuthService azureAuthService;
 
   AppRouter({
     required this.authService,
     required this.navigationService,
     required this.mockDataService,
-    required this.azureAuthService,
   });
 
   Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -52,7 +47,6 @@ class AppRouter {
             authService: authService,
             navigationService: navigationService,
             mockDataService: mockDataService,
-            azureAuthService: azureAuthService,
           ),
         );
       case '/register':
@@ -63,7 +57,6 @@ class AppRouter {
             authService: authService,
             navigationService: navigationService,
             mockDataService: mockDataService,
-            azureAuthService: azureAuthService,
           ),
         );
       case '/verification':

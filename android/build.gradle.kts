@@ -8,7 +8,7 @@ buildscript {
     dependencies {
         classpath("com.android.tools.build:gradle:$agpVersion")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
-        classpath("com.google.gms:google-services:4.3.15")
+        // Removed Google services dependency
     }
 }
 
@@ -19,9 +19,7 @@ allprojects {
         mavenCentral()
     }
 }
-plugins {
-    id("com.google.gms.google-services") version "4.3.15" apply false
-}
+// Removed plugins block with Google services
 
 
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()

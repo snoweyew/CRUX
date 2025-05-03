@@ -26,8 +26,8 @@ class RecommendationListViewBase extends StatelessWidget {
   Widget build(BuildContext context) {
     return FutureBuilder<List<Map<String, String>>>(
       // Fetch data using the service based on categoryKey and city
-      // Using mock data for now, adjust as needed for real API
-      future: Future.value(recommendationService.getMockRecommendations(categoryKey, city: selectedCity)),
+      // Use the actual fetchRecommendations method
+      future: recommendationService.fetchRecommendations(categoryKey, city: selectedCity),
       // future: AppConfig.enableMockData
       //     ? Future.value(recommendationService.getMockRecommendations(categoryKey, city: selectedCity))
       //     : recommendationService.fetchRecommendations(categoryKey, city: selectedCity), // Hypothetical API

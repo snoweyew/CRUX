@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/mock_data_service.dart';
-import '../../shared/services/azure_auth_service.dart';
+import '../../shared/services/role_auth_service.dart';
 import '../../shared/models/user_model.dart';
 
 class LoginPage extends StatefulWidget {
@@ -10,7 +10,6 @@ class LoginPage extends StatefulWidget {
   final AuthService authService;
   final NavigationService navigationService;
   final MockDataService mockDataService;
-  final AzureAuthService azureAuthService;
 
   const LoginPage({
     Key? key,
@@ -18,7 +17,6 @@ class LoginPage extends StatefulWidget {
     required this.authService,
     required this.navigationService,
     required this.mockDataService,
-    required this.azureAuthService,
   }) : super(key: key);
 
   @override
@@ -29,6 +27,9 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  
+  // Create an instance of our new role auth service
+  final _roleAuthService = RoleAuthService();
   
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -41,7 +42,9 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
   
+  // New simplified login method using role-based authentication
   void _handleLogin() async {
+    // Validate form first
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -52,52 +55,56 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      // Remove the third argument (widget.userRole)
-      final user = await widget.authService.signInWithEmailAndPassword(
-        _emailController.text,
-        _passwordController.text,
+      // Trim inputs to avoid whitespace issues
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+      
+      print('Starting login for user: $email with role: ${widget.userRole}');
+      
+      // Use our specialized role-based login service
+      final user = await _roleAuthService.roleBasedLogin(
+        email,
+        password,
+        widget.userRole, // Pass the exact expected role
       );
       
       if (mounted) {
-        // Check the role from the returned user object instead of widget.userRole
-        if (user != null && user.role == 'stb_staff') {
-          // Navigate to STB dashboard
+        if (user == null) {
+          // Login failed or role didn't match
+          setState(() {
+            _errorMessage = 'Login failed. Please check your email and password, or ensure you\'re using the correct login page for your role.';
+          });
+          return;
+        }
+        
+        // Login successful and role matches
+        if (widget.userRole == 'stb_staff') {
           widget.navigationService.navigateToReplacement(
             '/stb_dashboard',
             arguments: user,
           );
-        // Check the role from the returned user object instead of widget.userRole
-        } else if (user != null && user.role == 'local_guide') {
-          // Navigate to local guide dashboard (changed from /local_submission)
+        } else if (widget.userRole == 'local_guide') {
           widget.navigationService.navigateToReplacement(
-            '/local_main', // Changed route
+            '/local_main',
             arguments: user,
           );
-        } else {
-          // Handle cases where user is null or role doesn't match expected
-          setState(() {
-            _errorMessage = 'Login failed. Please check your credentials or role.';
-          });
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          // Format Firebase error messages to be more user-friendly
-          if (e.toString().contains('user-not-found')) {
-            _errorMessage = 'No account found with this email. Please check your email or register.';
-          } else if (e.toString().contains('wrong-password')) {
-            _errorMessage = 'Incorrect password. Please try again.';
-          } else if (e.toString().contains('wrong-role')) {
+          if (e.toString().contains('Invalid login credentials') || 
+              e.toString().contains('invalid_credentials')) {
+            _errorMessage = 'Email or password is incorrect. Please try again.';
+          } else if (e.toString().contains('Email not confirmed')) {
+            _errorMessage = 'Please verify your email address before logging in.';
+          } else if (e.toString().contains('role')) {
             _errorMessage = 'This account is not registered as a ${widget.userRole == 'stb_staff' ? 'STB staff' : 'local guide'}.';
-          } else if (e.toString().contains('too-many-requests')) {
-            _errorMessage = 'Too many failed login attempts. Please try again later.';
-          } else if (e.toString().contains('network-request-failed')) {
-            _errorMessage = 'Network error. Please check your internet connection.';
           } else {
-            _errorMessage = e.toString();
+            _errorMessage = 'Login failed: ${e.toString()}';
           }
         });
+        print('Login error details: $e');
       }
     } finally {
       if (mounted) {

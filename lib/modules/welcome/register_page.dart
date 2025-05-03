@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../shared/services/auth_service.dart';
 import '../../shared/services/navigation_service.dart';
 import '../../shared/services/mock_data_service.dart';
-import '../../shared/services/azure_auth_service.dart';
 import '../../shared/models/user_model.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -10,7 +9,6 @@ class RegisterPage extends StatefulWidget {
   final AuthService authService;
   final NavigationService navigationService;
   final MockDataService mockDataService;
-  final AzureAuthService azureAuthService;
 
   const RegisterPage({
     Key? key,
@@ -18,7 +16,6 @@ class RegisterPage extends StatefulWidget {
     required this.authService,
     required this.navigationService,
     required this.mockDataService,
-    required this.azureAuthService,
   }) : super(key: key);
 
   @override

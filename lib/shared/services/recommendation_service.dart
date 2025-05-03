@@ -1,122 +1,168 @@
 import 'dart:convert';
+import 'package:flutter/material.dart'; // Import for TimeOfDay
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart'; // Import Supabase
 import '../config/app_config.dart';
+import '../models/local_submission_model.dart'; // Keep this import
+import '../models/product_model.dart'; // Import Product model
 
 /// Service class to handle all recommendation-related API calls
-/// Backend API Implementation Guide:
-/// 1. Base URL: https://kangaroo.management.azure-api.net
-/// 2. All endpoints should be under /api/recommendations/
-/// 3. Authentication: Use x-api-key header for API key authentication
-/// 4. Response format should be JSON array of objects
+/// Fetches approved recommendations, events, and products from Supabase.
 class RecommendationService {
   final String baseUrl;
   final String apiKey;
+  final SupabaseClient _supabase; // Add Supabase client instance
 
   RecommendationService({
     String? baseUrl,
     String? apiKey,
+    SupabaseClient? supabase, // Allow injecting Supabase client
   }) : baseUrl = baseUrl ?? AppConfig.apiUrl,
-       apiKey = apiKey ?? AppConfig.apiKey;
+       apiKey = apiKey ?? AppConfig.apiKey,
+       _supabase = supabase ?? Supabase.instance.client; // Initialize Supabase client
 
-  /// Generic method to fetch recommendations
-  /// Backend Implementation Notes:
-  /// - Each endpoint should return a list of items
-  /// - Required fields for all items: name, description, location
-  /// - Shopping items require additional fields: id, price
-  /// - All text fields should be strings
-  /// - Prices should be formatted as strings with 2 decimal places (e.g. "299.00")
-  Future<List<Map<String, String>>> fetchRecommendations(String category) async {
+  /// Generic method to fetch recommendations from Supabase tables
+  /// based on the category.
+  Future<List<Map<String, String>>> fetchRecommendations(String category, {String? city}) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/recommendations/$category'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-        },
-      );
+      String tableName;
+      String selectColumns = '*'; // Default select all
+      Map<String, dynamic> filters = {};
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((item) => Map<String, String>.from(item)).toList();
-      } else {
-        throw Exception('Failed to fetch $category recommendations');
+      // Determine table and filters based on category
+      switch (category.toLowerCase()) {
+        case 'food':
+        case 'experience':
+        case 'attraction':
+          tableName = 'local_submissions';
+          filters['status'] = SubmissionStatus.approved.name;
+          filters['category'] = category.toLowerCase();
+          // Add city filter if applicable and column exists
+          // if (city != null && city.isNotEmpty) filters['city'] = city;
+          break;
+        case 'events':
+          tableName = 'events';
+          // Add filters if needed, e.g., filter by upcoming events
+          // filters['status'] = 'Upcoming';
+          // Add city filter if applicable and column exists
+          // if (city != null && city.isNotEmpty) filters['city'] = city;
+          break;
+        case 'shopping': // This category maps to the 'products' table
+          tableName = 'products';
+          // Add city filter if applicable and column exists
+          // if (city != null && city.isNotEmpty) filters['city'] = city;
+          break;
+        default:
+          print('Unknown recommendation category: $category');
+          return [];
       }
+
+      // Build the query
+      var query = _supabase.from(tableName).select(selectColumns);
+      filters.forEach((key, value) {
+        query = query.eq(key, value);
+      });
+
+      final response = await query;
+
+      // Map the response to the expected format List<Map<String, String>>
+      // Ensure all values are explicitly converted to String
+      final recommendations = (response as List).map((item) {
+        // Map data based on the source table (category)
+        switch (category.toLowerCase()) {
+          case 'food':
+          case 'experience':
+          case 'attraction':
+            final submission = LocalSubmission.fromJson(item);
+            return <String, String>{ // Explicitly type the map
+              'id': submission.id,
+              'name': submission.name,
+              'description': submission.description,
+              'location': submission.location,
+              'imageUrl': submission.photoUrl ?? '',
+              'category': submission.category,
+              'latitude': submission.latitude.toString(),
+              'longitude': submission.longitude.toString(),
+              'start_time': '${submission.startTime.hour}:${submission.startTime.minute.toString().padLeft(2, '0')}',
+              'end_time': '${submission.endTime.hour}:${submission.endTime.minute.toString().padLeft(2, '0')}',
+            };
+          case 'events':
+            DateTime? startDate = DateTime.tryParse(item['start_date']?.toString() ?? '');
+            DateTime? endDate = DateTime.tryParse(item['end_date']?.toString() ?? '');
+            return <String, String>{ // Explicitly type the map
+              'id': item['id']?.toString() ?? '',
+              'name': item['title']?.toString() ?? 'No Title',
+              'description': item['description']?.toString() ?? '',
+              'location': item['venue']?.toString() ?? '',
+              'imageUrl': item['image_url']?.toString() ?? '',
+              'category': item['category']?.toString() ?? 'event',
+              'startDate': startDate?.toIso8601String() ?? '',
+              'endDate': endDate?.toIso8601String() ?? '',
+              'status': item['status']?.toString() ?? '',
+              'city': item['city']?.toString() ?? '',
+            };
+          case 'shopping':
+            final product = Product.fromJson(item);
+            return <String, String>{ // Explicitly type the map
+              'id': product.id,
+              'name': product.name,
+              'description': product.description,
+              'location': product.location, // Vendor/Shop
+              'price': product.price.toStringAsFixed(2), // Format price
+              'imageUrl': product.imageUrl ?? '',
+              'category': product.category,
+              'city': product.city ?? '',
+            };
+          default:
+            return <String, String>{}; // Should not happen
+        }
+      }).toList(); // This now correctly produces List<Map<String, String>>
+
+      return recommendations;
+
     } catch (e) {
-      throw Exception('Error fetching $category recommendations: $e');
+      print('Error fetching $category recommendations from Supabase: $e');
+      // Return empty list or rethrow depending on desired error handling
+      return [];
+      // throw Exception('Error fetching $category recommendations: $e');
     }
   }
 
+  // --- Keep existing specific methods if they are still used elsewhere, ---
+  // --- but they should ideally call the updated fetchRecommendations ---
+  // --- or be removed if fetchRecommendations covers all cases. ---
+
   /// Events recommendations
-  /// Endpoint: GET /api/recommendations/events
-  /// Required fields:
-  /// - name: Name of the event
-  /// - description: Brief description of the event
-  /// - location: Where the event takes place
-  /// Optional fields:
-  /// - date: Event date in ISO format
-  /// - time: Event time
-  /// - price: Event ticket price if applicable
-  Future<List<Map<String, String>>> getEvents() async {
-    return fetchRecommendations('events');
+  Future<List<Map<String, String>>> getEvents({String? city}) async {
+    // Pass city to fetchRecommendations
+    return fetchRecommendations('events', city: city);
   }
 
   /// Food recommendations
-  /// Endpoint: GET /api/recommendations/food
-  /// Required fields:
-  /// - name: Name of the dish/restaurant
-  /// - description: Description of the food
-  /// - location: Restaurant/stall location
-  /// Optional fields:
-  /// - price: Average price or price range
-  /// - cuisine: Type of cuisine
-  /// - openingHours: Operating hours
-  Future<List<Map<String, String>>> getFood() async {
-    return fetchRecommendations('food');
+  Future<List<Map<String, String>>> getFood({String? city}) async {
+    // Pass city to fetchRecommendations
+    return fetchRecommendations('food', city: city);
   }
 
   /// Experiences recommendations
-  /// Endpoint: GET /api/recommendations/experiences
-  /// Required fields:
-  /// - name: Name of the experience
-  /// - description: What the experience entails
-  /// - location: Where it takes place
-  /// Optional fields:
-  /// - duration: How long it takes
-  /// - price: Cost per person
-  /// - bookingRequired: Yes/No
-  Future<List<Map<String, String>>> getExperiences() async {
-    return fetchRecommendations('experiences');
+  Future<List<Map<String, String>>> getExperiences({String? city}) async {
+    // Pass city to fetchRecommendations
+    return fetchRecommendations('experience', city: city); // Assuming 'experience' is the category key
   }
 
   /// Attractions recommendations
-  /// Endpoint: GET /api/recommendations/attractions
-  /// Required fields:
-  /// - name: Name of the attraction
-  /// - description: Description of what visitors can see/do
-  /// - location: Address or area
-  /// Optional fields:
-  /// - openingHours: Operating hours
-  /// - entranceFee: Admission fee if any
-  /// - type: Type of attraction (museum, park, etc.)
-  Future<List<Map<String, String>>> getAttractions() async {
-    return fetchRecommendations('attractions');
+  Future<List<Map<String, String>>> getAttractions({String? city}) async {
+    // Pass city to fetchRecommendations
+    return fetchRecommendations('attraction', city: city); // Assuming 'attraction' is the category key
   }
 
   /// Shopping recommendations
-  /// Endpoint: GET /api/recommendations/shopping
-  /// Required fields:
-  /// - id: Unique identifier for the product
-  /// - name: Product name
-  /// - description: Product description
-  /// - location: Where to buy
-  /// - price: Price in RM (format: "0.00")
-  /// Optional fields:
-  /// - category: Product category
-  /// - availability: Stock status
-  /// - vendor: Seller/shop name
-  Future<List<Map<String, String>>> getShopping() async {
-    return fetchRecommendations('shopping');
+  /// NOTE: local_submissions might not have 'price'. Adjust mapping if needed.
+  Future<List<Map<String, String>>> getShopping({String? city}) async {
+    // Pass city to fetchRecommendations
+    return fetchRecommendations('shopping', city: city); // Assuming 'shopping' is a category
   }
+
 
   // Mock data implementation - MODIFIED to accept city and include image URLs
   // Backend Note: This mock data structure shows the minimum required fields
