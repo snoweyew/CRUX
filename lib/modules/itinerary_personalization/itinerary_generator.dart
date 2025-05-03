@@ -1,9 +1,11 @@
 import '../../shared/models/preference_model.dart';
 import '../../shared/services/mock_data_service.dart';
+import '../../shared/services/itinerary_storage_service.dart';
 import 'itinerary_model.dart';
 
 class ItineraryGenerator {
   final MockDataService _mockDataService;
+  final ItineraryStorageService _storageService = ItineraryStorageService();
 
   ItineraryGenerator(this._mockDataService);
 
@@ -17,6 +19,21 @@ class ItineraryGenerator {
     return await _mockDataService.generateItinerary(city, preferences);
   }
 
+  // Save the current itinerary to local storage
+  Future<bool> saveItinerary(ItineraryModel itinerary) async {
+    return await _storageService.saveItinerary(itinerary);
+  }
+  
+  // Check if there are any saved itineraries
+  Future<bool> hasSavedItineraries() async {
+    return await _storageService.hasSavedItineraries();
+  }
+  
+  // Get all saved itineraries
+  Future<List<ItineraryModel>> getSavedItineraries() async {
+    return await _storageService.getSavedItineraries();
+  }
+
   // Regenerate a specific day in an itinerary
   Future<ItineraryModel> regenerateDay(
     ItineraryModel itinerary,
@@ -25,7 +42,7 @@ class ItineraryGenerator {
   ) async {
     // Generate a new day plan
     final newDayPlan = await _generateSingleDay(
-      itinerary.city,
+      itinerary.location,
       dayNumber,
       preferences,
     );
@@ -40,10 +57,10 @@ class ItineraryGenerator {
 
     // Return the updated itinerary
     return ItineraryModel(
-      id: itinerary.id,
-      city: itinerary.city,
+      location: itinerary.location,
+      generatedAt: DateTime.now(),
       days: updatedDays,
-      createdAt: DateTime.now(),
+      preferences: itinerary.preferences,
     );
   }
 
@@ -73,7 +90,7 @@ class ItineraryGenerator {
     final dayPlan = tempItinerary.days.first;
     return DayPlan(
       dayNumber: dayNumber,
-      activities: dayPlan.activities,
+      schedule: dayPlan.schedule,
     );
   }
 
@@ -90,14 +107,12 @@ class ItineraryGenerator {
     // For now, we'll generate some mock alternatives
     return List.generate(count, (index) {
       return Activity(
-        id: '${activity.id}-alt-${index + 1}',
-        name: 'Alternative ${index + 1} to ${activity.name}',
-        description: 'An alternative option to ${activity.description}',
         type: activity.type,
-        imageUrl: activity.imageUrl,
-        location: 'Alternative Location ${index + 1}',
+        name: 'Alternative ${index + 1} to ${activity.name}',
+        address: 'Alternative Address ${index + 1}, $city',
         timeSlot: activity.timeSlot,
+        description: 'An alternative option to ${activity.description ?? activity.name}',
       );
     });
   }
-} 
+}

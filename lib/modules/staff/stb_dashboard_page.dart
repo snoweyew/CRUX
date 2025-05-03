@@ -6,6 +6,8 @@ import '../../shared/services/supabase_submission_service.dart';
 import 'widgets/visitor_stats_section.dart';
 import 'widgets/event_management_section.dart';
 import 'widgets/submission_section.dart';
+import 'product_management_page.dart'; // Import the new product management page
+import 'cart_item_input_page.dart'; // Import the cart item input page
 
 class TouristStats {
   final String city;
@@ -106,6 +108,7 @@ class Complaint {
 }
 
 class Event {
+  final String id;
   final String title;
   final String description;
   final DateTime startDate;
@@ -113,8 +116,11 @@ class Event {
   final String venue;
   final String category;
   final String status;
+  final String? imageUrl;
+  final String? city;
 
   Event({
+    required this.id,
     required this.title,
     required this.description,
     required this.startDate,
@@ -122,6 +128,8 @@ class Event {
     required this.venue,
     required this.category,
     required this.status,
+    this.imageUrl,
+    this.city,
   });
 }
 
@@ -291,13 +299,27 @@ class _STBDashboardPageState extends State<STBDashboardPage> {
             icon: Icon(Icons.assignment),
             label: 'Submissions',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_shopping_cart),
+            label: 'Add Cart',
+          ),
         ],
         onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-            // Potentially trigger data fetch if switching to a tab that needs it
-            // and data hasn't been loaded yet. (Handled by _buildPage logic)
-          });
+          if (index == 3) {
+            // Navigate to Cart Item Input page
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CartItemInputPage(user: widget.user),
+              ),
+            );
+          } else {
+            setState(() {
+              _selectedIndex = index;
+              // Potentially trigger data fetch if switching to a tab that needs it
+              // and data hasn't been loaded yet. (Handled by _buildPage logic)
+            });
+          }
         },
       ),
     );

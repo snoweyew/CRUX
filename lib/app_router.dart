@@ -6,8 +6,10 @@ import 'modules/welcome/verification_page.dart';
 import 'modules/welcome/login_page.dart';
 import 'modules/welcome/register_page.dart';
 import 'modules/itinerary_personalization/itinerary_personalization_page.dart';
+import 'modules/itinerary_personalization/saved_itineraries_page.dart';
 import 'modules/recommendation/recommendation_page.dart';
 import 'modules/staff/stb_dashboard_page.dart';
+import 'modules/staff/product_management_page.dart'; // Import product management page
 import 'modules/local/local_main_page.dart';
 import 'shared/services/auth_service.dart';
 import 'shared/services/navigation_service.dart';
@@ -77,6 +79,11 @@ class AppRouter {
             submissionService: SupabaseSubmissionService(), // Ensure this is passed
           ),
         );
+      case '/product_management': // Add new route for product management
+        final UserModel user = settings.arguments as UserModel;
+        return MaterialPageRoute(
+          builder: (_) => ProductManagementPage(user: user),
+        );
       case '/local_main': 
         final UserModel user = settings.arguments as UserModel;
         return MaterialPageRoute(
@@ -137,6 +144,13 @@ class AppRouter {
         return MaterialPageRoute(
           builder: (_) => VisitorTypeSelectionPage(
             navigationService: navigationService,
+            user: user,
+          ),
+        );
+      case '/saved_itineraries':
+        final UserModel user = settings.arguments as UserModel;
+        return MaterialPageRoute(
+          builder: (_) => SavedItinerariesPage(
             user: user,
           ),
         );

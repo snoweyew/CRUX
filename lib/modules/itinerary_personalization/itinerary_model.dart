@@ -551,6 +551,7 @@ class ItineraryModel {
     }
   }
 
+  // Convert ItineraryModel to JSON for storage
   Map<String, dynamic> toJson() {
     return {
       'location': location,
@@ -558,6 +559,47 @@ class ItineraryModel {
       'days': days.map((day) => day.toJson()).toList(),
       'preferences': preferences,
     };
+  }
+
+  // Static method to create ItineraryModel from JSON
+  static ItineraryModel fromStoredJson(Map<String, dynamic> json) {
+    return ItineraryModel(
+      location: json['location'],
+      generatedAt: DateTime.parse(json['generated_at']),
+      days: (json['days'] as List).map((dayJson) => DayPlan(
+        dayNumber: dayJson['day_number'],
+        schedule: _parseScheduleFromJson(dayJson['schedule']),
+      )).toList(),
+      preferences: json['preferences'],
+    );
+  }
+  
+  // Helper method to parse schedule from JSON
+  static Map<String, List<Activity>> _parseScheduleFromJson(Map<String, dynamic> scheduleJson) {
+    Map<String, List<Activity>> schedule = {};
+    
+    scheduleJson.forEach((timeSlot, activities) {
+      if (activities is Map<String, dynamic>) {
+        schedule[timeSlot] = [];
+        activities.forEach((type, activityList) {
+          if (activityList is List) {
+            for (var activityData in activityList) {
+              if (activityData is Map<String, dynamic>) {
+                schedule[timeSlot]!.add(Activity(
+                  type: activityData['type'],
+                  name: activityData['name'],
+                  address: activityData['address'],
+                  timeSlot: activityData['time_slot'],
+                  description: activityData['description'],
+                ));
+              }
+            }
+          }
+        });
+      }
+    });
+    
+    return schedule;
   }
 }
 
@@ -597,22 +639,16 @@ class DayPlan {
   }
 
   Map<String, dynamic> toJson() {
+    Map<String, dynamic> scheduleJson = {};
+    schedule.forEach((timeSlot, activities) {
+      List<Map<String, dynamic>> activitiesList = 
+          activities.map((activity) => activity.toJson()).toList();
+      scheduleJson[timeSlot] = activitiesList;
+    });
+    
     return {
       'day_number': dayNumber,
-      'schedule': schedule.map((timeSlot, activities) {
-        // Group activities by type for each time slot
-        final Map<String, List<Map<String, dynamic>>> groupedActivities = {
-          'food': [],
-          'attraction': [],
-          'experience': [],
-        };
-
-        for (var activity in activities) {
-          groupedActivities[activity.type]!.add(activity.toJson());
-        }
-
-        return MapEntry(timeSlot, groupedActivities);
-      }),
+      'schedule': scheduleJson,
     };
   }
 }
