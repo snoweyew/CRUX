@@ -14,7 +14,7 @@ class ActivityView extends RecommendationListViewBase {
           key: key,
           recommendationService: recommendationService,
           selectedCity: selectedCity,
-          categoryKey: 'experiences', // Still use 'experiences' for the service
+          categoryKey: 'experience', // Changed from 'experiences' to match submission system
           fadeAnimation: fadeAnimation,
           cardBuilder: cardBuilder, // Pass it to the base class
         );

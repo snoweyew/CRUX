@@ -46,16 +46,46 @@ class _EventManagementSectionState extends State<EventManagementSection> {
             _eventsBucket,
             const BucketOptions(
               public: true, // Make images publicly accessible
-              fileSizeLimit: '10MB', // Limit to 10MB per file
+              fileSizeLimit: '10MB', // The correct parameter name is fileSizeLimit, not fileSize
               allowedMimeTypes: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'],
             ),
           );
           print('Events bucket created successfully');
         } catch (createError) {
-          print('Error creating events bucket: $createError');
+          // Check if it's a 409 Conflict error (bucket already exists)
+          if (createError.toString().contains('409') || 
+              createError.toString().contains('already exists') ||
+              createError.toString().contains('duplicate')) {
+            print('Events bucket already exists (created by another process)');
+            // No need to show an error to the user as the bucket exists
+          } else {
+            print('Error creating events bucket: $createError');
+            // Show error in UI when context is available
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error creating storage for events: $createError'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            });
+          }
         }
       } else {
         print('Error checking events bucket: $e');
+        // Show error in UI when context is available
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error accessing event storage: $e'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        });
       }
     }
   }
@@ -76,16 +106,55 @@ class _EventManagementSectionState extends State<EventManagementSection> {
           .order('start_date', ascending: true);
 
       List<Event> events = [];
+      final now = DateTime.now();
+      final tomorrow = now.add(const Duration(days: 1));
+      
+      // Remove time portion for date comparison
+      final todayDate = DateTime(now.year, now.month, now.day);
+      final tomorrowDate = DateTime(tomorrow.year, tomorrow.month, tomorrow.day);
+      
       for (var item in response) {
+        final startDate = DateTime.parse(item['start_date']);
+        final endDate = DateTime.parse(item['end_date']);
+        
+        // Remove time portion for more accurate date comparison
+        final eventStartDate = DateTime(startDate.year, startDate.month, startDate.day);
+        final eventEndDate = DateTime(endDate.year, endDate.month, endDate.day);
+        
+        String status;
+        
+        // If the event start date is today or tomorrow, mark as Ongoing
+        if (eventStartDate.isAtSameMomentAs(todayDate) || 
+            eventStartDate.isAtSameMomentAs(tomorrowDate) || 
+            (eventStartDate.isAfter(todayDate) && eventStartDate.isBefore(tomorrowDate))) {
+          status = 'Ongoing';
+        }
+        // If the event has already started but not ended, mark as Ongoing
+        else if (now.isAfter(startDate) && now.isBefore(endDate)) {
+          status = 'Ongoing';
+        }
+        // If the event is in the future (after tomorrow), mark as Upcoming
+        else if (eventStartDate.isAfter(tomorrowDate)) {
+          status = 'Upcoming';
+        }
+        // If the event has ended, mark as Expired
+        else if (now.isAfter(endDate)) {
+          status = 'Expired';
+        }
+        // Default fallback (should rarely be needed)
+        else {
+          status = 'Ongoing';
+        }
+        
         events.add(Event(
           id: item['id'],
           title: item['title'],
           description: item['description'],
-          startDate: DateTime.parse(item['start_date']),
-          endDate: DateTime.parse(item['end_date']),
+          startDate: startDate,
+          endDate: endDate,
           venue: item['venue'],
           category: item['category'],
-          status: item['status'] ?? (DateTime.now().isAfter(DateTime.parse(item['end_date'])) ? 'Expired' : 'Upcoming'),
+          status: status,
           imageUrl: item['image_url'],
           city: item['city'],
         ));
@@ -129,31 +198,47 @@ class _EventManagementSectionState extends State<EventManagementSection> {
     });
     
     try {
-      final String fileExtension = _selectedImage!.path.split('.').last;
+      // Generate a unique file name
+      final String fileExtension = _selectedImage!.path.split('.').last.toLowerCase();
       final String fileName = '${const Uuid().v4()}.$fileExtension';
-      final String filePath = fileName;
       
+      // Read file as bytes for more reliable upload
+      final bytes = await _selectedImage!.readAsBytes();
+      
+      // Upload file to Supabase Storage
       await _supabase.storage
           .from(_eventsBucket)
-          .upload(filePath, _selectedImage!);
+          .uploadBinary(
+            fileName,
+            bytes,
+            fileOptions: FileOptions(
+              contentType: 'image/$fileExtension',
+            ),
+          );
           
       // Get the public URL of the uploaded image
       final String imageUrl = _supabase.storage
           .from(_eventsBucket)
-          .getPublicUrl(filePath);
+          .getPublicUrl(fileName);
           
       setState(() {
         _isUploading = false;
         _selectedImage = null;
       });
       
+      print('Image uploaded successfully: $imageUrl');
       return imageUrl;
     } catch (e) {
+      print('Error uploading image: $e');
       setState(() {
         _isUploading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading image: $e')),
+        SnackBar(
+          content: Text('Error uploading image: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
       );
       return null;
     }
@@ -454,7 +539,8 @@ class _EventManagementSectionState extends State<EventManagementSection> {
               const SizedBox(height: 8),
               Text('Status: ${event.status}', 
                 style: TextStyle(
-                  color: event.status == 'Upcoming' ? Colors.green : Colors.grey,
+                  color: event.status == 'Upcoming' ? Colors.green : 
+                        event.status == 'Ongoing' ? Colors.blue : Colors.grey,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -562,6 +648,21 @@ class _EventManagementSectionState extends State<EventManagementSection> {
   }
 
   Widget _buildEventItem(String title, String date, String venue, String status, {required VoidCallback onTap}) {
+    // Define colors based on status
+    Color statusColor;
+    Color statusBackgroundColor;
+    
+    if (status == 'Upcoming') {
+      statusColor = Colors.green;
+      statusBackgroundColor = Colors.green.withOpacity(0.1);
+    } else if (status == 'Ongoing') {
+      statusColor = Colors.blue;
+      statusBackgroundColor = Colors.blue.withOpacity(0.1);
+    } else {
+      statusColor = Colors.grey;
+      statusBackgroundColor = Colors.grey.withOpacity(0.1);
+    }
+    
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -576,7 +677,7 @@ class _EventManagementSectionState extends State<EventManagementSection> {
               width: 4,
               height: 40,
               decoration: BoxDecoration(
-                color: status == 'Upcoming' ? Colors.green : Colors.grey,
+                color: statusColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -606,16 +707,14 @@ class _EventManagementSectionState extends State<EventManagementSection> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: status == 'Upcoming'
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.1),
+                color: statusBackgroundColor,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 status,
                 style: TextStyle(
                   fontSize: 12,
-                  color: status == 'Upcoming' ? Colors.green : Colors.grey,
+                  color: statusColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),

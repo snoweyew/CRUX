@@ -14,7 +14,7 @@ class AttractionView extends RecommendationListViewBase {
           key: key,
           recommendationService: recommendationService,
           selectedCity: selectedCity,
-          categoryKey: 'attractions',
+          categoryKey: 'attraction', // Changed from 'attractions' to match submission system 
           fadeAnimation: fadeAnimation,
           cardBuilder: cardBuilder, // Pass it to the base class
         );

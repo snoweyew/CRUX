@@ -72,48 +72,63 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
   
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      extendBody: true,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-        children: [
-            _buildAppBar(),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _buildSelectedCategoryView(),
-                ),
-              ],
-            ),
-          ),
-      bottomNavigationBar: Container(
-        color: Colors.white,
-        child: SafeArea(
-          top: false,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(
-                _categories.length,
-                (index) => _buildNavItem(index),
+    return WillPopScope(
+      // Handle Android back button at the page level
+      onWillPop: () async {
+        // If modal cart is showing, handle back differently
+        if (_selectedIndex == 2) {
+          // If we're in the cart tab, check if we have any overlays showing
+          final currentContext = context.findRenderObject()?.paintBounds;
+          if (currentContext != null) {
+            // Default to allowing back navigation
+            return true;
+          }
+        }
+        return true; // Allow normal back navigation by default
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        extendBody: true,
+        body: SafeArea(
+          bottom: false,
+          child: Column(
+          children: [
+              _buildAppBar(),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _buildSelectedCategoryView(),
+                  ),
+                ],
               ),
+            ),
+        bottomNavigationBar: Container(
+          color: Colors.white,
+          child: SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: List.generate(
+                  _categories.length,
+                  (index) => _buildNavItem(index),
+                ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
+      ),
+    );
   }
 
   Widget _buildAppBar() {
@@ -135,8 +150,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
       ),
       child: Row(
         children: [
-          const Icon(Icons.recommend, color: Colors.white, size: 28),
-          const SizedBox(width: 12),
+          // Recommendations title (now on the left)
           Text(
             'Recommendations',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -144,17 +158,29 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
               fontWeight: FontWeight.bold,
             ),
           ),
-          const Spacer(), // Pushes cart icon to the right
+          const Spacer(), // Push cart icon to the right
+          // Shopping cart icon on the right with cart item counter
           Stack(
             children: [
               IconButton(
                 icon: const Icon(Icons.shopping_cart, color: Colors.white),
-                onPressed: () => _showCart(),
+                onPressed: () {
+                  // Navigate to the cart tab directly instead of showing a popup
+                  setState(() {
+                    _selectedIndex = 2; // Cart is at index 2
+                  });
+                  // Trigger animation for content change
+                  _animationController.reset();
+                  _animationController.forward();
+                },
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                iconSize: 28,
               ),
               if (_cartItems.isNotEmpty)
                 Positioned(
-                  right: 0,
-                  top: 0,
+                  right: -5,
+                  top: -5,
                   child: Container(
                     padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
@@ -182,244 +208,127 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
     );
   }
 
-  void _showCart() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.black12)),
-              ),
-              child: Row(
-                children: [
-                  const Text(
-                    'Shopping Cart',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _cartItems.length,
-                itemBuilder: (context, index) {
-                  final item = _cartItems[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                          ? ClipRRect( // Rounded corners for image
-                              borderRadius: BorderRadius.circular(4.0),
-                              child: Image.network(
-                                item.imageUrl!,
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const SizedBox(width: 50, height: 50, child: Icon(Icons.broken_image, size: 24)),
-                                loadingBuilder: (context, child, progress) =>
-                                    progress == null ? child : const SizedBox(width: 50, height: 50, child: Center(child: CircularProgressIndicator())),
-                              ),
-                            )
-                          : const SizedBox(width: 50, height: 50, child: Icon(Icons.image_not_supported)), // Placeholder if no image
-                      title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('RM ${item.price.toStringAsFixed(2)}'),
-                      trailing: Text('x${item.quantity}', style: const TextStyle(fontSize: 16)),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Total:',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'RM ${_calculateTotal().toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _showCheckout(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(50),
-                    ),
-                    child: const Text('Proceed to Checkout'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCheckout() {
-    final airports = [
-      'Kuching International Airport',
-      'Sibu Airport',
-      'Miri Airport',
-      'Bintulu Airport',
-    ];
-    String? selectedAirport;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Cash on Delivery'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Select pickup location:'),
-              const SizedBox(height: 8),
-              DropdownButton<String>(
-                isExpanded: true,
-                value: selectedAirport,
-                hint: const Text('Select Airport'),
-                items: airports.map((airport) {
-                  return DropdownMenuItem(
-                    value: airport,
-                    child: Text(airport),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedAirport = value;
-                  });
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: selectedAirport == null
-                  ? null
-                  : () {
-                      // First close the checkout dialog
-                      Navigator.pop(context);
-                      // Then close the cart
-                      Navigator.pop(context);
-                      // Finally process the order with the selected airport
-                      _processOrder(selectedAirport!);
-                    },
-              child: const Text('Confirm Order'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-  
-  void _processOrder(String airport) {
-    // Clear the cart first
-    setState(() {
-      _cartItems.clear();
-    });
-
-    // Show success dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false, // User must tap OK to dismiss
-      builder: (BuildContext dialogContext) => AlertDialog(  // Use a named context
-        title: const Text('Order Confirmed!'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Your order has been confirmed for pickup at:'),
-            const SizedBox(height: 8),
-            Text(
-              airport,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text('You can collect your items at the airport counter.'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Just pop the confirmation dialog using the dialog's context
-              Navigator.of(dialogContext).pop();
-              
-              // Use a post-frame callback to ensure we're back on the recommendation page
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                // Navigate to the current page to refresh it (forcing a rebuild)
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => RecommendationPage(
-                      user: widget.user,
-                      navigationService: widget.navigationService,
-                      recommendationService: widget.recommendationService,
-                      itinerary: widget.itinerary,
-                    ),
-                  ),
-                );
-              });
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  double _calculateTotal() {
-    return _cartItems.fold(0, (total, item) => total + (item.price * item.quantity));
-  }
-
   void _addToCart(Map<String, String> product) {
+    // Show a quantity selector dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        int quantity = 1;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(
+                'Add to Cart',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (product['imageUrl'] != null && product['imageUrl']!.isNotEmpty)
+                      Container(
+                        height: 120,
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          image: DecorationImage(
+                            image: NetworkImage(product['imageUrl']!),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    Text(
+                      product['name']!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'RM ${product['price']!}',
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          onPressed: () {
+                            if (quantity > 1) {
+                              setState(() {
+                                quantity--;
+                              });
+                            }
+                          },
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            quantity.toString(),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: () {
+                            setState(() {
+                              quantity++;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Add to Cart'),
+                  onPressed: () {
+                    Navigator.of(context).pop(quantity);
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).then((selectedQuantity) {
+      if (selectedQuantity != null) {
+        _addItemsToCart(product, selectedQuantity);
+      }
+    });
+  }
+
+  // Actual method to add items to the cart with specified quantity
+  void _addItemsToCart(Map<String, String> product, int quantity) {
     setState(() {
       final existingItemIndex = _cartItems.indexWhere(
         (item) => item.productId == product['id'],
@@ -434,7 +343,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
           name: product['name']!,
           location: product['location']!,
           price: double.parse(product['price']!),
-          quantity: 1,
+          quantity: quantity,
           imageUrl: imageUrl, // Pass imageUrl
         ));
       } else {
@@ -445,18 +354,22 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
           name: existingItem.name,
           location: existingItem.location,
           price: existingItem.price,
-          quantity: existingItem.quantity + 1,
+          quantity: existingItem.quantity + quantity,
           imageUrl: existingItem.imageUrl, // Keep existing imageUrl
         );
       }
     });
 
+    // Show notification that item was added
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Added to cart'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text('Added $quantity item${quantity > 1 ? 's' : ''} to cart'),
+        duration: const Duration(seconds: 1),
       ),
     );
+    
+    // Show cart badge animation
+    setState(() {});
   }
 
   Widget _buildNavItem(int index) {
@@ -514,11 +427,11 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
     switch (_selectedIndex) {
       case 0: // Attractions
         return AttractionView(
-          key: const ValueKey('attractions'), // Use ValueKey for efficient rebuilds
+          key: const ValueKey('attractions'),
           recommendationService: widget.recommendationService,
           selectedCity: _selectedCity!,
           fadeAnimation: _fadeAnimation,
-          cardBuilder: _buildRecommendationCard, // Pass the method reference
+          cardBuilder: _buildRecommendationCard,
         );
       case 1: // Events
         return EventView(
@@ -526,16 +439,25 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
           recommendationService: widget.recommendationService,
           selectedCity: _selectedCity!,
           fadeAnimation: _fadeAnimation,
-          cardBuilder: _buildRecommendationCard, // Pass the method reference
+          cardBuilder: _buildRecommendationCard,
         );
-      case 2: // Cart
+      case 2: // Cart - Updated to work with new stateful CartView
+        // Use a special key with 'checkout' when coming from checkout flow
+        final bool isCheckoutFlow = _selectedIndex == 2 && _cartItems.isNotEmpty;
+        final String keyValue = isCheckoutFlow 
+            ? 'cart-checkout-${DateTime.now().millisecondsSinceEpoch}'
+            : 'cart-${DateTime.now().millisecondsSinceEpoch}';
+            
         return CartView(
-          key: const ValueKey('cart'), // Key reflects the UI purpose
+          key: ValueKey(keyValue), // Use unique key to force rebuild with checkout flag
           recommendationService: widget.recommendationService,
+          user: widget.user, // Pass the user model
           selectedCity: _selectedCity!,
           fadeAnimation: _fadeAnimation,
-          onAddToCart: _addToCart, // Pass the callback
-          shoppingCardBuilder: _buildShoppingCard, // Pass the shopping card builder method
+          onAddToCart: _addToCart,
+          shoppingCardBuilder: _buildShoppingCard,
+          cartItems: _cartItems,
+          onCartUpdated: _updateCartItems,
         );
       case 3: // Activities
         return ActivityView(
@@ -543,7 +465,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
           recommendationService: widget.recommendationService,
           selectedCity: _selectedCity!,
           fadeAnimation: _fadeAnimation,
-          cardBuilder: _buildRecommendationCard, // Pass the method reference
+          cardBuilder: _buildRecommendationCard,
         );
       case 4: // Food
         return FoodView(
@@ -551,7 +473,7 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
           recommendationService: widget.recommendationService,
           selectedCity: _selectedCity!,
           fadeAnimation: _fadeAnimation,
-          cardBuilder: _buildRecommendationCard, // Pass the method reference
+          cardBuilder: _buildRecommendationCard,
         );
       default:
         return const Center(child: Text('Invalid category selected.'));
@@ -778,5 +700,40 @@ class _RecommendationPageState extends State<RecommendationPage> with SingleTick
         ),
       ),
     );
+  }
+
+  // New method to update cart items from CartView
+  void _updateCartItems(List<dynamic> updatedItems) {
+    setState(() {
+      _cartItems = List.from(updatedItems);
+    });
+  }
+
+  void _showCheckout() {
+    // Simply navigate to the Cart tab
+    setState(() {
+      _selectedIndex = 2; // Set to Cart tab
+    });
+    
+    // Trigger animation for content change
+    _animationController.reset();
+    _animationController.forward();
+    
+    // Use a post-frame callback to show checkout options in the CartView
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        // Find the current CartView state and trigger its checkout flow
+        final currentContext = context.findRenderObject()?.paintBounds;
+        if (currentContext != null) {
+          // Notify the user that they can proceed with checkout
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select an airport for pickup'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    });
   }
 }
