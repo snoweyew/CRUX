@@ -293,14 +293,14 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
                         
                         const Spacer(flex: 3),
                         
-                        // Title text - Explore. with Gradient
-                        _buildGradientTitle('Explore.'),
+                        // Title text - Explore.
+                        _buildTitleText('Explore.'),
                         
-                        // Title text - Travel. with Gradient
-                        _buildGradientTitle('Travel.'),
+                        // Title text - Travel.
+                        _buildTitleText('Travel.'),
                         
-                        // Title text - Inspire. with Gradient
-                        _buildGradientTitle('Inspire.'),
+                        // Title text - Inspire.
+                        _buildTitleText('Inspire.'),
                         
                         const SizedBox(height: 16),
                         
@@ -322,7 +322,8 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
                           ),
                         ),
                         
-                        const Spacer(flex: 2),
+                        // Expanded spacer to push content to the bottom
+                        Expanded(child: SizedBox()), // Use Expanded instead of Spacer for maximum space
                         
                         // Bottom section with arrow and text
                         SlideTransition(
@@ -344,7 +345,8 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
                                       color: Colors.white,
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
+                                  // Add small padding at the bottom for better visual appearance
+                                  const SizedBox(height: 8),
                                   // Invisible button for tapping
                                   GestureDetector(
                                     onTap: _proceedAsTourist,
@@ -558,6 +560,26 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Helper widget to create title text with subtle drop shadow
+  Widget _buildTitleText(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 48,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+        height: 1.1,
+        shadows: [
+          Shadow(
+            blurRadius: 6.0,
+            color: Colors.black87,
+            offset: Offset(2.0, 2.0),
+          ),
+        ],
       ),
     );
   }

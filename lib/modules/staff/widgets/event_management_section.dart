@@ -293,6 +293,342 @@ class _EventManagementSectionState extends State<EventManagementSection> {
     }
   }
 
+  // Delete event
+  Future<void> _deleteEvent(String id) async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Delete Event'),
+          content: const Text('Are you sure you want to delete this event? This action cannot be undone.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Delete'),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+    
+    if (confirmed == true) {
+      try {
+        await _supabase.from('events').delete().eq('id', id);
+        
+        // Refresh events list
+        await _loadEvents();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Event deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete event: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  // Edit event
+  Future<void> _updateEvent(Event event) async {
+    try {
+      await _supabase.from('events').update({
+        'title': event.title,
+        'description': event.description,
+        'start_date': event.startDate.toIso8601String(),
+        'end_date': event.endDate.toIso8601String(),
+        'venue': event.venue,
+        'category': event.category,
+        'status': event.status,
+        'image_url': event.imageUrl,
+      }).eq('id', event.id);
+
+      // Refresh events list
+      await _loadEvents();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Event updated successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update event: $e')),
+      );
+    }
+  }
+
+  // Show edit event dialog
+  void _showEditEventDialog(Event event) {
+    final titleController = TextEditingController(text: event.title);
+    final descriptionController = TextEditingController(text: event.description);
+    final venueController = TextEditingController(text: event.venue);
+    final categoryController = TextEditingController(text: event.category);
+    
+    DateTime startDate = event.startDate;
+    DateTime endDate = event.endDate;
+    
+    // Reset selected image
+    setState(() {
+      _selectedImage = null;
+    });
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Edit Event'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(labelText: 'Title'),
+                    ),
+                    TextField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(labelText: 'Description'),
+                      maxLines: 3,
+                    ),
+                    TextField(
+                      controller: venueController,
+                      decoration: const InputDecoration(labelText: 'Venue'),
+                    ),
+                    TextField(
+                      controller: categoryController,
+                      decoration: const InputDecoration(labelText: 'Category'),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Event Image:'),
+                    const SizedBox(height: 8),
+                    
+                    // Image preview or placeholder
+                    GestureDetector(
+                      onTap: () async {
+                        await _pickImage();
+                        setStateDialog(() {}); // Update dialog state to show selected image
+                      },
+                      child: Container(
+                        height: 150,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: _selectedImage != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  _selectedImage!,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : event.imageUrl != null && event.imageUrl!.isNotEmpty
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      event.imageUrl!,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, progress) => 
+                                        progress == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                      errorBuilder: (context, error, stack) => 
+                                        Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: const [
+                                            Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                                            SizedBox(height: 8),
+                                            Text('Image not available'),
+                                          ],
+                                        ),
+                                    ),
+                                  )
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.add_a_photo, size: 40, color: Colors.grey),
+                                      SizedBox(height: 8),
+                                      Text('Tap to select image'),
+                                    ],
+                                  ),
+                      ),
+                    ),
+                    
+                    if (_isUploading) 
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: LinearProgressIndicator(),
+                      ),
+                    
+                    const SizedBox(height: 16),
+                    const Text('Start Date:'),
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: startDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setStateDialog(() {
+                            startDate = picked;
+                            // Ensure end date is not before start date
+                            if (endDate.isBefore(startDate)) {
+                              endDate = startDate;
+                            }
+                          });
+                        }
+                      },
+                      child: Text(startDate.toString().split(' ')[0]),
+                    ),
+                    const Text('End Date:'),
+                    TextButton(
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: endDate.isAfter(startDate) ? endDate : startDate,
+                          firstDate: startDate,
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setStateDialog(() {
+                            endDate = picked;
+                          });
+                        }
+                      },
+                      child: Text(endDate.toString().split(' ')[0]),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Status:'),
+                    DropdownButtonFormField<String>(
+                      value: event.status,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: 'Upcoming', child: Text('Upcoming')),
+                        DropdownMenuItem(value: 'Ongoing', child: Text('Ongoing')),
+                        DropdownMenuItem(value: 'Expired', child: Text('Expired')),
+                      ],
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          event = Event(
+                            id: event.id,
+                            title: event.title,
+                            description: event.description,
+                            startDate: event.startDate,
+                            endDate: event.endDate,
+                            venue: event.venue,
+                            category: event.category,
+                            status: value!,
+                            imageUrl: event.imageUrl,
+                            city: event.city,
+                          );
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: _isUploading ? null : () async {
+                    if (titleController.text.isEmpty || 
+                        descriptionController.text.isEmpty ||
+                        venueController.text.isEmpty ||
+                        categoryController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please fill all required fields')),
+                      );
+                      return;
+                    }
+
+                    // Upload image if selected
+                    String? imageUrl = event.imageUrl;
+                    if (_selectedImage != null) {
+                      setStateDialog(() {
+                        _isUploading = true;
+                      });
+                      
+                      imageUrl = await _uploadImage();
+                      
+                      setStateDialog(() {
+                        _isUploading = false;
+                      });
+                      
+                      if (imageUrl == null) {
+                        // Image upload failed
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Image upload failed')),
+                        );
+                        return;
+                      }
+                    }
+
+                    final updatedEvent = Event(
+                      id: event.id,
+                      title: titleController.text,
+                      description: descriptionController.text,
+                      startDate: startDate,
+                      endDate: endDate,
+                      venue: venueController.text,
+                      category: categoryController.text,
+                      status: event.status,
+                      imageUrl: imageUrl,
+                      city: event.city,
+                    );
+
+                    await _updateEvent(updatedEvent);
+                    if (mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2C2C2C),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: _isUploading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text('Save Changes'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _showAddEventDialog() {
     final titleController = TextEditingController();
     final descriptionController = TextEditingController();
@@ -561,6 +897,21 @@ class _EventManagementSectionState extends State<EventManagementSection> {
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: const Text('Mark as Expired'),
             ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showEditEventDialog(event);
+            },
+            child: const Text('Edit'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteEvent(event.id);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
