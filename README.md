@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Sarawak Travel App
 
 A Flutter application for personalized travel itineraries in Sarawak, Malaysia.
@@ -86,6 +85,3 @@ This app uses a mock data service to simulate backend API calls. In a production
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-=======
-# CRUX
->>>>>>> main
